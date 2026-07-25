@@ -7,13 +7,13 @@ deps:
 	go mod tidy
 
 test-api:
-	go test -v ./tests/api/...
+	./run-tests.sh -run=TestAPI
 
 test-ui:
-	go test -v ./tests/ui/...
+	./run-tests.sh -run=TestUI
 
 test-all:
-	go test -v ./tests/...
+	./run-tests.sh
 
 clean:
-	rm -rf requests/ reports/ screenshots/
+	rm -rf evidence/
