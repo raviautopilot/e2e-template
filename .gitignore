@@ -175,3 +175,8 @@ certs/
 **/screenshot/
 laxmi/.promote_hash
 varam/.promote_hash
+
+# ============================================
+# E2E ARTIFACTS & EVIDENCE
+# ============================================
+/evidence/

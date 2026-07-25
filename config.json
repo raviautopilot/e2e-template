@@ -1,0 +1,6 @@
+{
+  "baseUrl": "https://jsonplaceholder.typicode.com",
+  "seleniumUrl": "http://localhost:9515",
+  "headless": false,
+  "timeout": 10
+}
