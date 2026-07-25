@@ -9,6 +9,7 @@ import (
 // Config holds the configuration values for the testing framework.
 type Config struct {
 	BaseURL     string `json:"baseUrl"`
+	UiURL       string `json:"uiUrl"`
 	SeleniumURL string `json:"seleniumUrl"`
 	Headless    bool   `json:"headless"`
 	Timeout     int    `json:"timeout"`
@@ -17,7 +18,8 @@ type Config struct {
 // LoadConfig reads the configuration file from path and applies environment overrides.
 func LoadConfig(path string) (*Config, error) {
 	cfg := &Config{
-		BaseURL:     "https://jsonplaceholder.typicode.com",
+		BaseURL:     "https://api.nammataga.com",
+		UiURL:       "https://nammataga.com",
 		SeleniumURL: "http://localhost:9515",
 		Headless:    false,
 		Timeout:     10,
@@ -35,6 +37,9 @@ func LoadConfig(path string) (*Config, error) {
 	// Environment overrides
 	if val := os.Getenv("E2E_BASE_URL"); val != "" {
 		cfg.BaseURL = val
+	}
+	if val := os.Getenv("E2E_UI_URL"); val != "" {
+		cfg.UiURL = val
 	}
 	if val := os.Getenv("E2E_SELENIUM_URL"); val != "" {
 		cfg.SeleniumURL = val

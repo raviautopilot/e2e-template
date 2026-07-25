@@ -26,13 +26,14 @@ To configure the framework to run against `nammataga.com`, update `config.json` 
 ```json
 {
   "baseUrl": "https://api.nammataga.com",
+  "uiUrl": "https://nammataga.com",
   "seleniumUrl": "http://localhost:9515",
   "headless": false,
   "timeout": 10
 }
 ```
 
-*Note: You can override these variables on the fly in CI environments using environment variables (e.g. `E2E_BASE_URL=https://api.nammataga.com E2E_HEADLESS=true make test-all`).*
+*Note: You can override these variables on the fly in CI environments using environment variables (e.g. `E2E_BASE_URL=https://api.nammataga.com E2E_UI_URL=https://nammataga.com E2E_HEADLESS=true make test-all`).*
 
 ---
 
