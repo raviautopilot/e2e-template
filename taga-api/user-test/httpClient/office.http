@@ -1,9 +1,0 @@
-### GET State Office Holders ###
-GET {{apiUrl}}/api/office/state
-
-###
-
-### GET State Office Holders ###
-GET {{apiUrl}}/api/office/salem
-
-###
