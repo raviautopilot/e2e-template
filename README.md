@@ -8,7 +8,7 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 
 - **Extensible API Client**: Auto-marshaling, struct pointer safety checks, and an interface-driven Authentication manager (Bearer, Basic, API Key, mTLS, and SSH signing).
 - **Selenium UI Integration**: Base Page Object wrappers handling dynamic CSS/XPath element selection, waiting hooks, interaction wrappers, and automated screenshots on test failure.
-- **Observability Logging**: Automatic date-organized file logging of request and response payloads at `tests/requests/YYYY-MM-DD/HH-MM-SS-<suffix>-(request|response).json`.
+- **Observability Logging**: Automatic date-organized file logging of request and response payloads at `evidence/run-<timestamp>/requests/`.
 - **Beautiful HTML/JSON Reporting**: Interactive responsive test results dashboard compiled automatically after each execution.
 
 ---
@@ -17,37 +17,59 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 
 ```
 ├── go.mod                     # Go module definitions
-├── Makefile                   # Execution commands
-├── config.json                # Environment configs (dev/staging/prod)
+├── go.sum                     # Dependency checksums
+├── Makefile                   # Execution shortcuts
+├── config.json                # Environment configuration (adapt to your project)
 ├── pkg/
 │   ├── config/
-│   │   └── config.go          # Config loader and environment overrides
+│   │   └── config.go          # Config loader and environment variable overrides
 │   ├── logger/
-│   │   └── logger.go          # Thread-safe logging levels (INFO, DEBUG, etc.)
+│   │   └── logger.go          # Thread-safe logging levels (INFO, DEBUG, WARN, ERROR)
 │   ├── client/
 │   │   ├── auth.go            # Authentication interface and sub-types
 │   │   └── client.go          # Custom HTTP client wrapper and JSON logger
 │   ├── ui/
 │   │   ├── driver.go          # Selenium WebDriver connection & option manager
-│   │   └── pom.go             # Page Object Model helper wrappers
-│   │   └── pages/
-│   │       └── login_page.go  # Example Page Object form
+│   │   ├── pom.go             # Page Object Model helper wrappers
+│   │   ├── pages/
+│   │   │   ├── home_page.go          # Example home page object
+│   │   │   └── login_page.go         # Example login page object
+│   │   └── actions/
+│   │       ├── admin_actions.go      # Example admin user actions
+│   │       ├── member_actions.go     # Example member user actions
+│   │       └── public_actions.go     # Example public user actions
 │   └── report/
 │       ├── report.go          # Result collector and HTML compiler
-│       └── template.html      # Visual dashboard layout template
-└── tests/
-    ├── main_test.go           # Suite bootstrap (TestMain, RunUITest, RunAPITest)
-    ├── api_test.go            # API example test cases
-    └── ui_test.go             # UI example test cases
+│       ├── template.html      # Visual dashboard layout template
+│       └── template.md        # Markdown report template
+├── tests/
+│   ├── main_test.go           # Suite bootstrap (TestMain)
+│   ├── helpers.go             # RunAPITest, RunUITest, seedTestData, etc.
+│   ├── api/
+│   │   ├── main_test.go       # API package bootstrap
+│   │   ├── types_test.go      # Response type definitions
+│   │   └── example_api_test.go  # Example API test cases
+│   └── ui/
+│       ├── main_test.go       # UI package bootstrap
+│       └── example_ui_test.go   # Example UI test cases
+├── fixtures/                  # Test data files (CSV, JSON, PDF, images)
+│   ├── example_bulk_upload.csv
+│   ├── example_resource.pdf
+│   └── example_image.png
+├── docs/
+│   ├── MASTER_API_TESTING_PROMPT.md  # AI prompt template for generating API tests
+│   └── references/                   # Reference documentation
+├── archives/                  # Historical reference documents
+└── scripts/                   # Helper scripts (publishing, npm, graphify, etc.)
 ```
 
 ---
 
 ## Prerequisites
 
-1. **Golang**: Ensure Go 1.18+ is installed.
+1. **Golang**: Ensure Go 1.21+ is installed.
 2. **Google Chrome & Chromedriver**: Install Chrome and Chromedriver on your local machine or server.
-   - For Ubuntu/Linux VM:
+   - For Ubuntu/Linux:
      ```bash
      sudo apt-get update
      sudo apt-get install -y chromium-browser chromium-chromedriver
@@ -58,29 +80,41 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 
 ## Quick Start
 
-1. **Start Chromedriver**:
+1. **Clone this template**:
+   ```bash
+   ./clone.sh /path/to/your-new-test-project
+   cd /path/to/your-new-test-project
+   ```
+
+2. **Configure your targets** in `config.json`:
+   ```json
+   {
+     "baseUrl": "https://api.yourapp.com",
+     "uiUrl": "https://yourapp.com",
+     "seleniumUrl": "http://localhost:9515",
+     "headless": false,
+     "timeout": 10
+   }
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   make deps
+   ```
+
+4. **Start Chromedriver**:
    ```bash
    chromedriver --port=9515
    ```
 
-2. **Run All Tests (Headed UI & API)**:
+5. **Run example tests**:
    ```bash
    make test-all
    ```
 
-3. **Run in Headless Mode (CI / VMs)**:
+6. **Run in Headless Mode (CI/VMs)**:
    ```bash
    E2E_HEADLESS=true make test-all
-   ```
-
-4. **Run API Tests Only**:
-   ```bash
-   make test-api
-   ```
-
-5. **Clean Reports and Logs**:
-   ```bash
-   make clean
    ```
 
 ---
@@ -89,82 +123,97 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 
 ### 1. API Test Cases
 
-Create tests using `RunAPITest`, passing your structures by pointer:
+Create tests using `RunAPITestWithDetails` for rich reporting, or `RunAPITest` for simpler cases:
 
 ```go
-type Post struct {
-    ID    int    `json:"id"`
-    Title string `json:"title"`
-}
-
-func TestMyAPI(t *testing.T) {
-    RunAPITest(t, "Fetch Post from API", func(t *testing.T, c *client.Client) {
-        var post Post
-        auth := &client.BearerTokenAuth{Token: "my-token"}
-        
-        // Headers (optional)
-        headers := map[string]string{"X-Custom-Header": "Value"}
-
-        // SendHttpRequest: checks structure pointers and auto-marshals JSON
-        err := c.SendHttpRequest("GET", "/posts/1", headers, nil, &post, auth)
-        if err != nil {
-            t.Fatalf("API call failed: %v", err)
-        }
-
-        if post.ID != 1 {
-            t.Errorf("Expected ID 1, got %d", post.ID)
-        }
-    })
+func TestAPI_GetUser(t *testing.T) {
+    tests.RunAPITestWithDetails(
+        t,
+        "GET /users/1 returns a valid user",
+        "Verifies that fetching user ID 1 returns a non-empty name and email.",
+        "HTTP 200 OK with non-empty name and email",
+        func(tc *tests.TestContext) {
+            var user UserResponse
+            err := tc.Client.SendHttpRequest("GET", "/users/1", nil, nil, &user, nil)
+            if err != nil {
+                tc.FailureReason = fmt.Sprintf("Request failed: %v", err)
+                tc.Fatalf("Request failed: %v", err)
+            }
+            tc.Actual = fmt.Sprintf("HTTP 200 OK, name=%q, email=%q", user.Name, user.Email)
+            if user.Name == "" {
+                tc.Errorf("Expected non-empty name")
+            }
+        },
+    )
 }
 ```
 
 ### 2. UI Test Cases
 
-Create page objects inside `pkg/ui/pages/` by wrapping `*ui.Page`:
+Create page objects in `pkg/ui/pages/` and run them with `RunUITest`:
 
 ```go
-type GoogleSearchPage struct {
-    *ui.Page
-    SearchBox string
-}
+func TestUI_LoginFlow(t *testing.T) {
+    tests.RunUITest(t, "Admin Login Flow", func(t *testing.T, page *ui.Page) {
+        cfg := tests.GlobalConfig
 
-func NewGoogleSearchPage(driver selenium.WebDriver) *GoogleSearchPage {
-    return &GoogleSearchPage{
-        Page:      ui.NewPage(driver),
-        SearchBox: "css:input[name='q']",
-    }
-}
-```
-
-Run them using `RunUITest`:
-
-```go
-func TestGoogleSearch(t *testing.T) {
-    RunUITest(t, "Search Query", func(t *testing.T, page *ui.Page) {
-        if err := page.Driver.Get("https://google.com"); err != nil {
-            t.Fatal(err)
+        if err := page.Navigate(cfg.UiURL + "/login"); err != nil {
+            t.Fatalf("Failed to navigate: %v", err)
         }
-        
-        searchPage := NewGoogleSearchPage(page.Driver)
-        err := searchPage.SendKeys(searchPage.SearchBox, "Golang Selenium", 5*time.Second)
-        if err != nil {
-            t.Fatal(err)
+
+        page.Click("testid:" + cfg.AdminLoginButtonTestID)
+        page.TypeText("testid:" + cfg.AdminLoginUsernameInputTestID, cfg.AdminCredentials.Username)
+        page.TypeText("testid:" + cfg.AdminLoginPasswordInputTestID, cfg.AdminCredentials.Password)
+        page.Click("testid:" + cfg.AdminLoginSubmitButtonTestID)
+
+        // Verify dashboard loaded
+        if err := page.WaitForElement("testid:dashboard-header"); err != nil {
+            t.Errorf("Dashboard did not load after login: %v", err)
         }
     })
 }
 ```
 
-*Note: If a UI test fails, the framework automatically writes a screenshot to `tests/screenshots/` and includes an inline link/preview in the HTML report.*
+*Note: If a UI test fails, the framework automatically writes a screenshot to `evidence/run-<timestamp>/screenshots/` and includes an inline link/preview in the HTML report.*
 
 ---
 
-## Configuration Overrides
+## Configuration
 
-The default settings reside in `config.json`. You can override them via environment variables:
+### config.json Fields
 
-| Config JSON | Env Variable | Default | Description |
-|---|---|---|---|
-| `baseUrl` | `E2E_BASE_URL` | `https://jsonplaceholder.typicode.com` | Host API for test suite |
-| `seleniumUrl` | `E2E_SELENIUM_URL` | `http://localhost:9515` | Endpoint address of WebDriver |
-| `headless` | `E2E_HEADLESS` | `false` | Toggle headless Chrome UI mode |
-| `timeout` | `E2E_TIMEOUT` | `10` | Default timeout for waits/requests (secs) |
+| Field | Default | Description |
+|---|---|---|
+| `baseUrl` | `http://localhost:8080` | Your API's base URL |
+| `uiUrl` | `http://localhost:3000` | Your web app's URL |
+| `seleniumUrl` | `http://localhost:9515` | ChromeDriver WebSocket URL |
+| `headless` | `false` | Set `true` for headless Chrome (CI) |
+| `timeout` | `10` | Default timeout in seconds |
+| `adminCredentials` | — | Admin username/password for tests |
+| `memberCredentials` | — | Member/user credentials for tests |
+| `*TestID` fields | — | `data-testid` attribute values for UI elements |
+
+### Environment Variable Overrides
+
+| Config JSON | Env Variable |
+|---|---|
+| `baseUrl` | `E2E_BASE_URL` |
+| `uiUrl` | `E2E_UI_URL` |
+| `seleniumUrl` | `E2E_SELENIUM_URL` |
+| `headless` | `E2E_HEADLESS` |
+| `timeout` | `E2E_TIMEOUT` |
+
+---
+
+## Reports
+
+After each test run, reports are generated in `evidence/run-<timestamp>/`:
+
+```
+evidence/run-2026-01-15_14-30-00/
+├── reports/
+│   ├── report.html    # Interactive HTML dashboard (open in browser)
+│   └── report.md      # Markdown summary
+├── requests/          # Per-test request/response JSON logs
+└── screenshots/       # Failure screenshots (UI tests)
+```

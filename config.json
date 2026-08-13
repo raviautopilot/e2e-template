@@ -1,7 +1,63 @@
 {
-  "baseUrl": "https://api.nammataga.com",
-  "uiUrl": "https://nammataga.com",
+  "_comment": "E2E Template Configuration — copy this file and fill in your project values.",
+  "_docs": "See README.md for full documentation on each field.",
+
+  "_section_core": "── CORE SETTINGS ──────────────────────────────────────────",
+  "baseUrl": "http://localhost:8080",
+  "uiUrl": "http://localhost:3000",
   "seleniumUrl": "http://localhost:9515",
   "headless": false,
-  "timeout": 10
+  "timeout": 10,
+
+  "_section_credentials": "── AUTH CREDENTIALS ────────────────────────────────────────",
+  "_credentials_note": "Never commit real credentials. Use environment variables or a secrets manager.",
+  "adminCredentials": {
+    "username": "admin@example.com",
+    "password": "REPLACE_ME"
+  },
+  "memberCredentials": {
+    "username": "member@example.com",
+    "password": "REPLACE_ME"
+  },
+
+  "_section_login_testids": "── LOGIN FORM TEST IDs (data-testid attributes) ────────────",
+  "_testid_note": "Set data-testid attributes on your UI elements and list them here.",
+  "adminLoginButtonTestID": "testid-admin-login-button",
+  "adminLoginUsernameInputTestID": "testid-admin-login-username-input",
+  "adminLoginPasswordInputTestID": "testid-admin-login-password-input",
+  "adminLoginSubmitButtonTestID": "testid-admin-login-submit-button",
+  "memberLoginButtonTestID": "testid-member-login-button",
+  "memberLoginUsernameInputTestID": "testid-login-identifier-input",
+  "memberLoginPasswordInputTestID": "testid-login-password-input",
+  "memberLoginSubmitButtonTestID": "testid-login-submit-button",
+  "logoutButtonTestID": "testid-logout-button",
+
+  "_section_form_testids": "── EXAMPLE: Create/Add Form TEST IDs ───────────────────────",
+  "_form_note": "Add your application's form element test IDs here. Remove/rename as needed.",
+  "adminAddMemberButtonTestID": "testid-add-member-button",
+  "adminAddMemberNameInputTestID": "testid-add-member-name-input",
+  "adminAddMemberEmailInputTestID": "testid-add-member-email-input",
+  "adminAddMemberSubmitButtonTestID": "testid-add-member-submit-button",
+  "memberSearchInputTestID": "testid-member-search-input",
+  "memberDeleteButtonTestID": "testid-member-delete-button",
+  "memberConfirmDeleteButtonTestID": "testid-member-confirm-delete-button",
+  "memberEditButtonTestID": "testid-member-edit-button",
+  "memberSaveEditButtonTestID": "testid-member-save-edit-button",
+
+  "_section_bulk_testids": "── EXAMPLE: Bulk Upload TEST IDs ───────────────────────────",
+  "adminBulkUploadButtonTestID": "testid-bulk-upload-button",
+  "adminBulkUploadFileInputTestID": "testid-bulk-upload-file-input",
+  "adminBulkUploadSubmitButtonTestID": "testid-bulk-upload-submit-button",
+  "bulkMemberEmails": ["test-user-1@example.com"],
+  "bulkMemberMobiles": ["9800000001"],
+
+  "_section_form_data": "── EXAMPLE: New Entity Form Data ───────────────────────────",
+  "_form_data_note": "Pre-fill test form data for create/update tests. Adapt fields to your entity model.",
+  "newMemberEmail": "new-member@example.com",
+  "newMemberFormData": {
+    "name": "Test User",
+    "email": "new-member@example.com",
+    "role": "member",
+    "status": "active"
+  }
 }
