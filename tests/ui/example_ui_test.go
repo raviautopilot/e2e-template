@@ -34,12 +34,34 @@ package ui_test
 // ─────────────────────────────────────────────────────────────────────────────
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"e2e-template/pkg/ui"
 	"e2e-template/tests"
 )
+
+// isUIServerRunning checks whether the configured uiUrl is reachable.
+// Returns false when uiUrl points to localhost/127.0.0.1 and no server answers.
+// This lets the template example tests skip gracefully in a fresh checkout.
+func isUIServerRunning() bool {
+	if tests.GlobalConfig == nil || tests.GlobalConfig.UiURL == "" {
+		return false
+	}
+	uiURL := tests.GlobalConfig.UiURL
+	// If it's a localhost URL and nothing answers, skip
+	if strings.Contains(uiURL, "localhost") || strings.Contains(uiURL, "127.0.0.1") {
+		c := &http.Client{Timeout: 2 * time.Second}
+		resp, err := c.Get(uiURL)
+		if err != nil {
+			return false
+		}
+		resp.Body.Close()
+	}
+	return true
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Example 1: Verify the home page loads and contains expected content.
@@ -48,6 +70,9 @@ import (
 // TestUI_01_HomePageLoads navigates to the configured uiUrl and verifies the page loads.
 // TODO: Replace the CSS/XPath selectors with ones from your own application.
 func TestUI_01_HomePageLoads(t *testing.T) {
+	if !isUIServerRunning() {
+		t.Skipf("Skipping: no server running at %s (set uiUrl in config.json)", tests.GlobalConfig.UiURL)
+	}
 	tests.RunUITest(t, "Home Page Loads Successfully", func(t *testing.T, page *ui.Page) {
 		cfg := tests.GlobalConfig
 
@@ -81,6 +106,9 @@ func TestUI_01_HomePageLoads(t *testing.T) {
 // TestUI_02_LoginPageElements verifies login form elements exist on the login page.
 // TODO: Configure the selector test IDs in config.json (adminLoginUsernameInputTestID, etc.).
 func TestUI_02_LoginPageElements(t *testing.T) {
+	if !isUIServerRunning() {
+		t.Skipf("Skipping: no server running at %s (set uiUrl in config.json)", tests.GlobalConfig.UiURL)
+	}
 	tests.RunUITest(t, "Login Page Elements Are Present", func(t *testing.T, page *ui.Page) {
 		cfg := tests.GlobalConfig
 
@@ -122,6 +150,9 @@ func TestUI_02_LoginPageElements(t *testing.T) {
 // TestUI_03_ExampleJourney demonstrates a multi-step navigation journey.
 // Replace each step with real interactions for your application.
 func TestUI_03_ExampleJourney(t *testing.T) {
+	if !isUIServerRunning() {
+		t.Skipf("Skipping: no server running at %s (set uiUrl in config.json)", tests.GlobalConfig.UiURL)
+	}
 	tests.RunUITest(t, "Example Multi-Step User Journey", func(t *testing.T, page *ui.Page) {
 		cfg := tests.GlobalConfig
 

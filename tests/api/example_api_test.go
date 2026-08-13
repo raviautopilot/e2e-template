@@ -1,16 +1,20 @@
 package api_test
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TEMPLATE: Example API Tests
+// TEMPLATE: Example API Tests (YOUR APPLICATION)
 //
-// This file shows how to write API tests using the e2e-template framework.
-// Tests use RunAPITestWithDetails for rich HTML/Markdown reports.
+// This file is a skeleton showing how to write tests against YOUR local/staging
+// API server. These tests are skipped automatically when no server is running
+// at baseUrl (config.json), so the template works out-of-the-box.
+//
+// See public_api_test.go for fully working examples against real public APIs.
 //
 // HOW TO ADAPT:
 //  1. Replace baseUrl in config.json with your API's base URL.
-//  2. Rename these functions and update endpoint paths.
-//  3. Add more test cases to the table-driven slices.
-//  4. Add more test files following the same naming convention: XX-feature_test.go
+//  2. Rename these functions and update endpoint paths to match your API.
+//  3. Remove the isServerRunning() skip guard once your server is configured.
+//  4. Add more test cases to the table-driven slices.
+//  5. Add more test files: tests/api/XX-feature_test.go
 //
 // FRAMEWORK CONCEPTS:
 //  - tests.RunAPITestWithDetails → runs a named subtest with full report metadata
@@ -18,15 +22,33 @@ package api_test
 //  - tc.Expected / tc.Actual / tc.FailureReason → populate the HTML/MD report
 //
 // Run with:
-//   go test -v ./tests/api/...
+//   go test -v ./tests/api/... -run TestAPI_01
 // ─────────────────────────────────────────────────────────────────────────────
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
+	"time"
 
 	"e2e-template/tests"
 )
+
+// isServerRunning does a quick connectivity check against the configured baseUrl.
+// Returns true if the server is reachable, false otherwise.
+// Used to skip local-server tests gracefully when no server is running.
+func isServerRunning() bool {
+	if tests.GlobalConfig == nil || tests.GlobalConfig.BaseURL == "" {
+		return false
+	}
+	httpClient := &http.Client{Timeout: 2 * time.Second}
+	resp, err := httpClient.Get(tests.GlobalConfig.BaseURL)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return true
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Example 1: Health Check Endpoint
@@ -45,7 +67,12 @@ type healthTestCase struct {
 
 // TestAPI_01_HealthCheck validates the /health (or equivalent) endpoint.
 // Adapt the path to match your API's health endpoint.
+// SKIPPED automatically when no server is running at baseUrl.
 func TestAPI_01_HealthCheck(t *testing.T) {
+	if !isServerRunning() {
+		t.Skipf("Skipping: no server running at %s (set baseUrl in config.json)", tests.GlobalConfig.BaseURL)
+	}
+
 	testCases := []healthTestCase{
 		{
 			Name:        "Health Check Returns 200 OK",
@@ -87,7 +114,7 @@ func TestAPI_01_HealthCheck(t *testing.T) {
 
 				if testCase.WantError {
 					if err == nil {
-						tc.FailureReason = fmt.Sprintf("Expected HTTP error, got 200 OK")
+						tc.FailureReason = "Expected HTTP error, got 200 OK"
 						tc.Errorf("Expected HTTP error, got 200 OK")
 					} else if testCase.WantStatus > 0 && err.StatusCode() != testCase.WantStatus {
 						tc.Actual = fmt.Sprintf("Got HTTP %d", err.StatusCode())
@@ -129,8 +156,13 @@ type publicGetTestCase struct {
 }
 
 // TestAPI_02_PublicEndpoints validates multiple read-only public endpoints.
+// SKIPPED automatically when no server is running at baseUrl.
 // TODO: Replace the endpoint paths and validation logic with your own API routes.
 func TestAPI_02_PublicEndpoints(t *testing.T) {
+	if !isServerRunning() {
+		t.Skipf("Skipping: no server running at %s (set baseUrl in config.json)", tests.GlobalConfig.BaseURL)
+	}
+
 	testCases := []publicGetTestCase{
 		{
 			Name:        "GET Root Returns Welcome Payload",
