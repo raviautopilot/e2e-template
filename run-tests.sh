@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Ensure script executes in taga-test directory where go.mod resides
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 # Configuration
 PORT=9515
 
@@ -37,9 +41,9 @@ done
 # 3.5. Export a shared timestamp so all test packages run under the same run folder
 export E2E_RUN_TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
-# 4. Run the Go E2E tests in headless mode
+# 4. Run the Go E2E tests (respecting config.json headless setting or E2E_HEADLESS env var)
 echo "Running E2E test suite..."
-E2E_HEADLESS=true go test -v ./tests/... "$@"
+go test -v -timeout 30m ./tests/ui/... ./tests/api/... "$@"
 TEST_EXIT_CODE=$?
 
 echo "========================================="
