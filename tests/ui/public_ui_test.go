@@ -7,292 +7,138 @@ package ui_test
 // out-of-the-box without any local server running.
 //
 // Sites tested:
-//   - https://google.com  — Search page interaction and result verification
-//   - https://github.com  — Navigation, search bar, and public repo page
+//   - https://google.com  — Search interaction
+//   - https://github.com  — Navigation and page verification
 //   - https://example.com — Minimal baseline / sanity test
 //
-// These tests demonstrate the full POM framework capabilities:
-//   - page.GoToHome(url)                    → navigate to a URL
-//   - page.WaitUntilVisible(locator, t)     → wait for element to appear
-//   - page.SendKeys(locator, text, t)       → type into an input
-//   - page.Click(locator, t)                → click an element
-//   - page.GetText(locator, t)              → read element text
-//   - page.CaptureScreenshot(stepName)      → save a step screenshot
-//   - page.Driver.Title()                   → read the browser page title
+// Tests use the action-based persona/result pattern:
+//   1. Create a persona (who is performing the actions)
+//   2. Create a result collector (tracks actions, evidence, advice)
+//   3. Call sequential action functions (reads like human steps)
+//   4. Assert on the result at the end
 //
 // Run with:
 //   go test -v ./tests/ui/... -run TestUI_Public
 // ─────────────────────────────────────────────────────────────────────────────
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"e2e-template/pkg/ui"
+	"e2e-template/pkg/ui/actions"
 	"e2e-template/tests"
 )
 
-// waitForGoogleSearchBox tries each known Google search box selector in sequence.
-// Google uses <textarea name="q"> on modern Chrome but <input name="q"> on
-// older layouts. The pom.go parseLocator only strips one "css:" prefix so
-// comma-separated multi-selectors like "css:a, css:b" are NOT valid — always
-// pass them as separate WaitUntilVisible calls instead.
-func waitForGoogleSearchBox(page *ui.Page, timeout time.Duration) error {
-	// Try the modern textarea first (used by Google since ~2023)
-	if _, err := page.WaitUntilVisible("css:textarea[name='q']", timeout); err == nil {
-		return nil
-	}
-	// Fallback: older input-based search box
-	if _, err := page.WaitUntilVisible("css:input[name='q']", 2*time.Second); err == nil {
-		return nil
-	}
-	return fmt.Errorf("google search box not found (tried textarea[name='q'] and input[name='q'])")
-}
-
-// sendKeysToGoogleSearchBox types text into whichever search box variant is present.
-func sendKeysToGoogleSearchBox(page *ui.Page, text string, timeout time.Duration) error {
-	if err := page.SendKeys("css:textarea[name='q']", text, timeout); err == nil {
-		return nil
-	}
-	return page.SendKeys("css:input[name='q']", text, 3*time.Second)
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// 01 · Google Search
+// 01 · Google — Search Journey
 // ─────────────────────────────────────────────────────────────────────────────
 
-// TestUI_Public_01_GoogleHomePageLoads verifies Google's homepage loads with a search box.
-func TestUI_Public_01_GoogleHomePageLoads(t *testing.T) {
-	tests.RunUITest(t, "Google Homepage Loads With Search Box", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://www.google.com"); err != nil {
-			t.Fatalf("Failed to navigate to Google: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-google-home")
+// TestUI_Public_01_GoogleJourney demonstrates a complete Google search journey
+// using the action-based pattern. Each step reads like a human action.
+func TestUI_Public_01_GoogleJourney(t *testing.T) {
+	tests.RunUITest(t, "Google Search Journey", func(t *testing.T, page *ui.Page) {
+		persona := actions.NewPublicPersona(page, "https://www.google.com", 10*time.Second)
+		result := actions.NewResult("GoogleJourney")
 
-		// Google uses <textarea name="q"> on modern Chrome (updated from <input name="q">).
-		// waitForGoogleSearchBox() tries both variants sequentially.
-		if err := waitForGoogleSearchBox(page, 10*time.Second); err != nil {
-			t.Fatalf("%v", err)
-		}
-		_, _ = page.CaptureScreenshot("02-search-box-visible")
+		// Human-readable journey: Go to Google → Verify search box → Type query → Submit
+		actions.GoToHome(persona, result)
+		actions.VerifyGoogleSearchBox(persona, result)
+		actions.TypeInGoogleSearchBox(persona, result, "e2e testing framework golang")
+		actions.SubmitGoogleSearch(persona, result)
 
-		t.Logf("✅ Google homepage loaded with search box")
+		if result.Failed() {
+			t.Errorf("Google journey failed: %v\nActions: %v\nAdvice: %v",
+				result.Error, result.Actions, result.Advice)
+		} else {
+			t.Logf("✅ Google search journey completed: %v", result.Actions)
+		}
 	})
 }
 
-// TestUI_Public_02_GoogleSearch performs a search by navigating directly to a results URL.
-// This avoids the homepage interaction and is more reliable across regions/consent pages.
-func TestUI_Public_02_GoogleSearch(t *testing.T) {
-	tests.RunUITest(t, "Google Search Results Page Loads", func(t *testing.T, page *ui.Page) {
-		// Navigate directly to a search results URL — this is the most reliable approach
-		// as it bypasses any homepage consent dialogs or A/B test variants.
-		searchURL := "https://www.google.com/search?q=e2e+testing+framework+golang&hl=en"
-		if err := page.GoToHome(searchURL); err != nil {
-			t.Fatalf("Failed to navigate to Google search results: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-search-results-page")
+// TestUI_Public_02_GoogleSearchDirect demonstrates navigating directly
+// to a search results URL (bypasses homepage consent dialogs).
+func TestUI_Public_02_GoogleSearchDirect(t *testing.T) {
+	tests.RunUITest(t, "Google Direct Search Results", func(t *testing.T, page *ui.Page) {
+		persona := actions.NewPublicPersona(page, "https://www.google.com/search?q=e2e+testing+framework+golang&hl=en", 10*time.Second)
+		result := actions.NewResult("GoogleDirectSearch")
 
-		// Verify the search box on the results page is present.
-		// Uses sequential selector attempts — comma-separated CSS locators are not supported.
-		if err := waitForGoogleSearchBox(page, 10*time.Second); err != nil {
-			t.Logf("WARNING: Search box not found on results page: %v", err)
+		actions.GoToHome(persona, result)
+		actions.VerifyElementVisible(persona, result, "css:body", "SearchResultsBody")
+
+		if result.Failed() {
+			t.Errorf("Direct search failed: %v\nAdvice: %v", result.Error, result.Advice)
 		} else {
-			_, _ = page.CaptureScreenshot("02-results-search-box-present")
+			t.Logf("✅ Google direct search page loaded: %v", result.Actions)
 		}
-
-		// Verify at least the page body loaded (handles redirects/consent screens gracefully)
-		if _, err := page.WaitUntilVisible("css:body", 5*time.Second); err != nil {
-			t.Fatalf("Google search results page body did not load: %v", err)
-		}
-
-		// Check page title contains our search query
-		title, err := page.Driver.Title()
-		if err != nil {
-			t.Logf("WARNING: Could not read page title: %v", err)
-		} else {
-			t.Logf("Page title: %q", title)
-		}
-
-		_, _ = page.CaptureScreenshot("03-results-final")
-		t.Logf("✅ Google search results page loaded")
-	})
-}
-
-// TestUI_Public_03_GoogleSearchTyped demonstrates typing into Google's search box and submitting.
-func TestUI_Public_03_GoogleSearchTyped(t *testing.T) {
-	tests.RunUITest(t, "Google Homepage Search by Typing", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://www.google.com"); err != nil {
-			t.Fatalf("Failed to navigate to Google: %v", err)
-		}
-
-		// Wait for search box (textarea on modern Chrome, input on older builds)
-		if err := waitForGoogleSearchBox(page, 10*time.Second); err != nil {
-			t.Fatalf("%v", err)
-		}
-
-		// Type the search query into whichever search box variant is present
-		if err := sendKeysToGoogleSearchBox(page, "selenium golang e2e", 5*time.Second); err != nil {
-			t.Fatalf("Failed to type into Google search box: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-query-typed")
-
-		// Submit by pressing Enter into the search box
-		if err := sendKeysToGoogleSearchBox(page, "\n", 3*time.Second); err != nil {
-			t.Fatalf("Failed to submit search: %v", err)
-		}
-
-		// Wait for the results page to load — check for body
-		if _, err := page.WaitUntilVisible("css:body", 10*time.Second); err != nil {
-			t.Fatalf("Search results page did not load: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("02-results-after-submit")
-
-		title, _ := page.Driver.Title()
-		t.Logf("✅ Google search submitted, title=%q", title)
 	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 02 · GitHub
+// 02 · GitHub — Navigation Journey
 // ─────────────────────────────────────────────────────────────────────────────
 
-// TestUI_Public_04_GitHubHomePageLoads verifies GitHub's homepage loads.
-func TestUI_Public_04_GitHubHomePageLoads(t *testing.T) {
-	tests.RunUITest(t, "GitHub Homepage Loads", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://github.com"); err != nil {
-			t.Fatalf("Failed to navigate to GitHub: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-github-home")
+// TestUI_Public_03_GitHubJourney demonstrates verifying multiple GitHub pages.
+func TestUI_Public_03_GitHubJourney(t *testing.T) {
+	tests.RunUITest(t, "GitHub Navigation Journey", func(t *testing.T, page *ui.Page) {
+		persona := actions.NewPublicPersona(page, "https://github.com", 10*time.Second)
+		result := actions.NewResult("GitHubJourney")
 
-		// Verify the page body is present
-		if _, err := page.WaitUntilVisible("css:body", 10*time.Second); err != nil {
-			t.Fatalf("GitHub page body not found: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("02-github-body-visible")
+		// Step 1: Load GitHub homepage and verify title
+		actions.GoToHome(persona, result)
+		actions.VerifyElementVisible(persona, result, "css:body", "GitHubBody")
+		actions.VerifyPageTitle(persona, result, "GitHub")
 
-		// Verify the page title contains "GitHub"
-		title, err := page.Driver.Title()
-		if err != nil {
-			t.Logf("WARNING: Could not read page title: %v", err)
-		} else if !strings.Contains(title, "GitHub") {
-			t.Errorf("Expected page title to contain 'GitHub', got %q", title)
+		if result.Failed() {
+			t.Errorf("GitHub journey failed: %v\nActions: %v\nAdvice: %v",
+				result.Error, result.Actions, result.Advice)
 		} else {
-			t.Logf("✅ GitHub homepage loaded, title=%q", title)
+			t.Logf("✅ GitHub homepage journey completed: %v", result.Actions)
 		}
 	})
 }
 
-// TestUI_Public_05_GitHubPublicRepoLoads verifies a known public repo page loads correctly.
-func TestUI_Public_05_GitHubPublicRepoLoads(t *testing.T) {
-	tests.RunUITest(t, "GitHub Public Repo Page Loads (octocat/Hello-World)", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://github.com/octocat/Hello-World"); err != nil {
-			t.Fatalf("Failed to navigate to GitHub repo: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-repo-page")
+// TestUI_Public_04_GitHubPublicRepo verifies a known public repository page.
+func TestUI_Public_04_GitHubPublicRepo(t *testing.T) {
+	tests.RunUITest(t, "GitHub Public Repo Page (octocat/Hello-World)", func(t *testing.T, page *ui.Page) {
+		persona := actions.NewPublicPersona(page, "https://github.com/octocat/Hello-World", 10*time.Second)
+		result := actions.NewResult("GitHubPublicRepo")
 
-		// Verify page body loaded
-		if _, err := page.WaitUntilVisible("css:body", 10*time.Second); err != nil {
-			t.Fatalf("GitHub repo page body not found: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("02-repo-body-visible")
+		actions.GoToHome(persona, result)
+		actions.VerifyElementVisible(persona, result, "css:body", "RepoPageBody")
+		actions.VerifyPageTitle(persona, result, "Hello-World")
 
-		// Verify the page title contains the repo name
-		title, err := page.Driver.Title()
-		if err != nil {
-			t.Logf("WARNING: Could not read page title: %v", err)
-		} else if !strings.Contains(title, "Hello-World") {
-			t.Errorf("Expected title to contain 'Hello-World', got %q", title)
+		if result.Failed() {
+			t.Errorf("GitHub repo page failed: %v\nAdvice: %v", result.Error, result.Advice)
 		} else {
-			t.Logf("✅ GitHub public repo page loaded, title=%q", title)
+			t.Logf("✅ GitHub public repo page loaded: %v", result.Actions)
 		}
-	})
-}
-
-// TestUI_Public_06_GitHubSearchWorks verifies GitHub's search functionality via direct URL.
-func TestUI_Public_06_GitHubSearchWorks(t *testing.T) {
-	tests.RunUITest(t, "GitHub Search Results Page Loads", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://github.com/search?q=selenium+golang&type=repositories"); err != nil {
-			t.Fatalf("Failed to navigate to GitHub search results: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-github-search-results")
-
-		if _, err := page.WaitUntilVisible("css:body", 10*time.Second); err != nil {
-			t.Fatalf("GitHub search results page did not load: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("02-search-results-body")
-
-		title, _ := page.Driver.Title()
-		t.Logf("✅ GitHub search page loaded, title=%q", title)
 	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 03 · Example.com — Simplest possible baseline test
-// Maintained by IANA, always available, predictable content.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// TestUI_Public_07_ExampleComLoads verifies example.com loads with correct h1.
-func TestUI_Public_07_ExampleComLoads(t *testing.T) {
-	tests.RunUITest(t, "example.com Baseline Loads", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://example.com"); err != nil {
-			t.Fatalf("Failed to navigate to example.com: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-example-com")
+// TestUI_Public_05_ExampleCom verifies example.com loads with correct content.
+func TestUI_Public_05_ExampleCom(t *testing.T) {
+	tests.RunUITest(t, "example.com Baseline Test", func(t *testing.T, page *ui.Page) {
+		persona := actions.NewPublicPersona(page, "https://example.com", 5*time.Second)
+		result := actions.NewResult("ExampleCom")
 
-		// example.com always has an h1 with "Example Domain"
-		h1Text, err := page.GetText("css:h1", 5*time.Second)
-		if err != nil {
-			t.Fatalf("h1 element not found on example.com: %v", err)
-		}
-		_, _ = page.CaptureScreenshot("02-h1-visible")
+		actions.GoToHome(persona, result)
+		actions.VerifyElementVisible(persona, result, "css:h1", "H1Heading")
+		actions.VerifyPageTitle(persona, result, "Example Domain")
 
-		if h1Text == "" {
-			t.Errorf("Expected non-empty h1 text on example.com")
+		h1Text := actions.GetElementText(persona, result, "css:h1", "H1Text")
+		if h1Text != "" {
+			t.Logf("✅ example.com h1: %q", h1Text)
+		}
+
+		if result.Failed() {
+			t.Errorf("example.com test failed: %v\nAdvice: %v", result.Error, result.Advice)
 		} else {
-			t.Logf("✅ example.com loaded, h1=%q", h1Text)
+			t.Logf("✅ example.com baseline passed: %v", result.Actions)
 		}
-
-		// Verify a link is present on the page
-		if _, err := page.WaitUntilVisible("css:a", 3*time.Second); err != nil {
-			t.Logf("Note: No links found on example.com: %v", err)
-		} else {
-			linkText, _ := page.GetText("css:a", 3*time.Second)
-			t.Logf("✅ Link present: %q", linkText)
-		}
-	})
-}
-
-// TestUI_Public_08_ExampleComPageTitle verifies example.com has the correct browser title.
-// Uses page.Driver.Title() (the browser API) instead of CSS:title (not a visible element).
-func TestUI_Public_08_ExampleComPageTitle(t *testing.T) {
-	tests.RunUITest(t, "example.com Has Correct Browser Page Title", func(t *testing.T, page *ui.Page) {
-		if err := page.GoToHome("https://example.com"); err != nil {
-			t.Fatalf("Failed to navigate to example.com: %v", err)
-		}
-
-		// Wait for page to load
-		if _, err := page.WaitUntilVisible("css:h1", 5*time.Second); err != nil {
-			t.Fatalf("Page did not load (h1 not found): %v", err)
-		}
-		_, _ = page.CaptureScreenshot("01-title-check")
-
-		// Use Driver.Title() — the correct way to get <title> content.
-		// css:title does NOT work because <title> is in <head> and is not a "visible" element.
-		title, err := page.Driver.Title()
-		if err != nil {
-			t.Fatalf("Could not read browser title: %v", err)
-		}
-
-		expectedTitle := "Example Domain"
-		if title != expectedTitle {
-			t.Errorf("Expected page title %q, got %q", expectedTitle, title)
-		} else {
-			t.Logf("✅ Browser title matches: %q", title)
-		}
-
-		// Prevent unused import
-		_ = fmt.Sprintf
 	})
 }
