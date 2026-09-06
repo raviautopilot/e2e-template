@@ -324,11 +324,14 @@
 <div class="container">
     <header>
         <div>
-            <h1>🧪 E2E Test Execution Report</h1>
-            <div class="timestamp">Started at: {{.Summary.StartTime.Format "2006-01-02 15:04:05"}}</div>
+            <h1>🧪 E2E Test Execution Report{{if .Summary.SuiteName}} &mdash; {{.Summary.SuiteName}}{{end}}{{if .Summary.TargetName}} ({{.Summary.TargetName}}){{end}}</h1>
+            <div class="timestamp">
+                Started at: {{.Summary.StartTime.Format "2006-01-02 15:04:05"}}
+                {{if .Summary.RunID}} &bull; Run: <code>{{.Summary.RunID}}</code>{{end}}
+            </div>
         </div>
         <div style="text-align: right">
-            <div class="badge badge-type" style="font-size: 0.875rem">Go Test Automation Suite</div>
+            <div class="badge badge-type" style="font-size: 0.875rem">{{if .Summary.SuiteName}}{{.Summary.SuiteName}} Test Suite{{else}}Go Test Automation Suite{{end}}</div>
             <div class="timestamp" style="margin-top: 0.25rem">Total Execution Time: {{.Summary.TotalDurationStr}}</div>
         </div>
     </header>
@@ -430,7 +433,7 @@
                 <!-- Screenshots Gallery (one per test) -->
                 {{if .Screenshots}}
                 <div class="screenshots-section">
-                    <div class="screenshots-title">📸 Step Screenshots ({{len .Screenshots}})</div>
+                    <div class="screenshots-title">📸 Step Screenshots ({{len .Screenshots}}) &bull; {{.Name}}</div>
                     <div class="screenshots-grid">
                         {{range .Screenshots}}
                         <div class="screenshot-item">
@@ -442,12 +445,26 @@
                 </div>
                 {{else if .Screenshot}}
                 <div class="screenshots-section">
-                    <div class="screenshots-title">📸 Failure Screenshot</div>
+                    <div class="screenshots-title">📸 Failure Screenshot &bull; {{.Name}}</div>
                     <div class="screenshots-grid">
                         <div class="screenshot-item">
                             <div class="screenshot-label">{{basename .Screenshot}}</div>
                             <img class="screenshot-thumb" src="{{.Screenshot}}" alt="Failure Screenshot" onclick="openLightbox('{{.Screenshot}}', '{{basename .Screenshot}}', this)" loading="lazy">
                         </div>
+                    </div>
+                </div>
+                {{end}}
+
+                <!-- Network Request & Response Logs -->
+                {{if .RequestLogs}}
+                <div class="screenshots-section">
+                    <div class="screenshots-title">🌐 Test Evidence &amp; Request Logs ({{len .RequestLogs}}) &bull; {{.Name}}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                        {{range .RequestLogs}}
+                        <a href="{{.}}" target="_blank" style="display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(15,23,42,0.6); border: 1px solid var(--border); padding: 0.4rem 0.75rem; border-radius: 6px; color: var(--accent-blue); text-decoration: none; font-size: 0.8rem; font-family: monospace; transition: border-color 0.2s;">
+                            <span>📄</span> {{basename .}}
+                        </a>
+                        {{end}}
                     </div>
                 </div>
                 {{end}}

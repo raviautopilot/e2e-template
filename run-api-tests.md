@@ -140,7 +140,14 @@ func TestMyAPI(t *testing.T) {
 
 ## 6. Test Evidence & Reports
 
-Every test execution automatically collects evidence in `evidence/run-<timestamp>/`:
-- **API Request/Response logs**: `evidence/run-<timestamp>/requests/`
-- **Interactive HTML Report**: `evidence/run-<timestamp>/reports/report.html`
-- **Markdown Report**: `evidence/run-<timestamp>/reports/report.md`
+Every test execution automatically collects evidence in meaningful, test-scoped directories under `evidence/`:
+- **Evidence Run Directory**: `evidence/run-api-<target>-<timestamp>/`
+  - When running a specific test via `-run <TestName>`, `<target>` reflects the test name (e.g., `evidence/run-api-TestAPI_HttpBin_01_GetEcho-2026-09-06_18-45-00/`).
+  - When targeting a package (e.g. `./tests/api/httpbin/...`), `<target>` reflects the package (e.g., `evidence/run-api-httpbin-2026-09-06_18-45-00/`).
+  - When running all tests, `<target>` defaults to `all` (e.g., `evidence/run-api-all-2026-09-06_18-45-00/`).
+
+### Evidence Artifacts:
+- **API Request/Response logs**: `evidence/run-api-<target>-<timestamp>/requests/` (organized by test and timestamp)
+- **Interactive HTML Report**: `evidence/run-api-<target>-<timestamp>/reports/report.html` (includes suite metadata, scope, and test-linked request logs)
+- **Markdown Report**: `evidence/run-api-<target>-<timestamp>/test-report.md` (summary table with test evidence counts)
+
