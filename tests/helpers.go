@@ -68,16 +68,28 @@ func SetupSuite() {
 			configPath = "config.json"
 		}
 
-		// Locate config.json dynamically based on current working directory
+		moduleRoot, _ := findModuleRoot()
+
+		// Locate config.json dynamically based on module root or relative path
 		var path string
 		if _, err := os.Stat(configPath); err == nil {
 			path = configPath
-		} else if _, err := os.Stat("../config.json"); err == nil {
-			path = "../config.json"
-		} else if _, err := os.Stat("../../config.json"); err == nil {
-			path = "../../config.json"
-		} else {
-			path = "config.json"
+		} else if moduleRoot != "" {
+			candidate := filepath.Join(moduleRoot, "config.json")
+			if _, err := os.Stat(candidate); err == nil {
+				path = candidate
+			}
+		}
+		if path == "" {
+			if _, err := os.Stat("../config.json"); err == nil {
+				path = "../config.json"
+			} else if _, err := os.Stat("../../config.json"); err == nil {
+				path = "../../config.json"
+			} else if _, err := os.Stat("../../../config.json"); err == nil {
+				path = "../../../config.json"
+			} else {
+				path = "config.json"
+			}
 		}
 
 		cfg, err := config.LoadConfig(path)
@@ -92,7 +104,7 @@ func SetupSuite() {
 			RunTimestamp = time.Now().Format("2006-01-02_15-04-05")
 		}
 
-		moduleRoot, err := findModuleRoot()
+		moduleRoot, err = findModuleRoot()
 		if err != nil {
 			EvidenceDir = filepath.Join("..", "evidence", "run-"+RunTimestamp)
 		} else {
@@ -361,6 +373,9 @@ func RunAPITest(t *testing.T, name string, fn func(t *testing.T, c *client.Clien
 // RunUITest is a wrapper executing a UI test case, injecting a Page Object model,
 // managing ChromeDriver, and capturing screenshots on failure.
 func RunUITest(t *testing.T, name string, fn func(t *testing.T, page *ui.Page)) {
+	if GlobalConfig == nil {
+		SetupSuite()
+	}
 	startChromeDriverIfNeeded()
 
 	rep := report.GetGlobalReporter()

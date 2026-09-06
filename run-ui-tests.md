@@ -44,41 +44,50 @@ Automatically manages Chromedriver lifecycle and handles traps:
 # Run with visible Chrome browser window (headed mode)
 E2E_HEADLESS=false ./run-ui-tests.sh
 
-# Run only public site tests
-./run-ui-tests.sh -run TestUI_Public
+# Run all UI tests in a specific package
+./run-ui-tests.sh ./tests/ui/google/...
+./run-ui-tests.sh ./tests/ui/github/...
+./run-ui-tests.sh ./tests/ui/example/...
 
-# Run a specific public test
-./run-ui-tests.sh -run TestUI_Public_05_ExampleCom
+# Run a specific test
+./run-ui-tests.sh -run TestUI_Google_01_SearchJourney
+./run-ui-tests.sh -run TestUI_GitHub_01_NavigationJourney
+./run-ui-tests.sh -run TestUI_Example_01_ExampleCom
 ```
 
 ### Option B: Using Standard `go test`
 If you already have `chromedriver` running on port 9515:
 ```bash
-go test -v ./tests/ui/... -run TestUI_Public -count=1
+go test -v ./tests/ui/...
+go test -v ./tests/ui/google/...
+go test -v ./tests/ui/github/...
+go test -v ./tests/ui/example/...
 ```
 
 ---
 
 ## 4. Test Catalog
 
-### 🌐 Public Site UI Tests (`tests/ui/public_ui_test.go`)
-Real, working browser automation tests targeting public internet websites:
+Each test suite resides in its own package under `tests/ui/`, with **one test per file** for readability:
 
-| Test Name | Target Site | What It Tests |
+### 🌐 Google Package (`tests/ui/google/`)
+| File | Test Function | What It Tests |
 |---|---|---|
-| `TestUI_Public_01_GoogleJourney` | Google (`https://www.google.com`) | Page load, search input visibility, typing search query, submitting search |
-| `TestUI_Public_02_GoogleSearchDirect` | Google (`https://www.google.com/search?q=...`) | Direct search URL navigation and results page title verification |
-| `TestUI_Public_03_GitHubJourney` | GitHub (`https://github.com`) | Homepage load, main heading/header verification, title check |
-| `TestUI_Public_04_GitHubPublicRepo` | GitHub (`https://github.com/octocat/Hello-World`) | Public repository page navigation, repo title & readme container verification |
-| `TestUI_Public_05_ExampleCom` | example.com (`https://example.com`) | Lightweight baseline connectivity, H1 heading visibility and text check |
+| `01_search_journey_test.go` | `TestUI_Google_01_SearchJourney` | Page load, search input visibility, typing search query, submitting search |
+| `02_search_direct_test.go` | `TestUI_Google_02_SearchDirect` | Direct search URL navigation and results page title verification |
 
-### 🛠️ Example Skeleton UI Tests (`tests/ui/example_ui_test.go`)
-Template tests for your custom web application (configured via `uiUrl` in `config.json`):
+### 🌐 GitHub Package (`tests/ui/github/`)
+| File | Test Function | What It Tests |
+|---|---|---|
+| `01_navigation_journey_test.go` | `TestUI_GitHub_01_NavigationJourney` | Homepage load, main heading/header verification, title check |
+| `02_public_repo_test.go` | `TestUI_GitHub_02_PublicRepo` | Public repository page navigation, repo title & readme container verification |
 
-| Test Name | Purpose |
-|---|---|
-| `TestUI_01_PublicJourneys` | Skeleton demonstrating public persona navigation across app pages |
-| `TestUI_02_AdminLoginJourney` | Skeleton demonstrating admin persona login flow and dashboard access |
+### 🛠️ Example Package (`tests/ui/example/`)
+| File | Test Function | What It Tests |
+|---|---|---|
+| `01_example_com_test.go` | `TestUI_Example_01_ExampleCom` | Lightweight baseline connectivity and H1 heading check against example.com |
+| `02_public_journey_test.go` | `TestUI_Example_02_PublicJourneys` | Skeleton demonstrating public persona navigation across your app |
+| `03_admin_login_journey_test.go` | `TestUI_Example_03_AdminLoginJourney` | Skeleton demonstrating admin login journey across your app |
 
 ---
 

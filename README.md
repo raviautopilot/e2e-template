@@ -59,9 +59,19 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 │   │   ├── public_api_test.go # Working tests targeting public APIs (httpbin, GitHub, JSONPlaceholder)
 │   │   └── example_api_test.go# Example skeleton tests for custom backend
 │   └── ui/
-│       ├── main_test.go       # UI package bootstrap
-│       ├── public_ui_test.go  # Working tests targeting public sites (Google, GitHub, example.com)
-│       └── example_ui_test.go # Example skeleton tests for custom frontend
+│       ├── google/            # Google UI test package (1 test per file)
+│       │   ├── main_test.go
+│       │   ├── 01_search_journey_test.go
+│       │   └── 02_search_direct_test.go
+│       ├── github/            # GitHub UI test package (1 test per file)
+│       │   ├── main_test.go
+│       │   ├── 01_navigation_journey_test.go
+│       │   └── 02_public_repo_test.go
+│       └── example/           # Example UI test package (1 test per file)
+│           ├── main_test.go
+│           ├── 01_example_com_test.go
+│           ├── 02_public_journey_test.go
+│           └── 03_admin_login_journey_test.go
 ├── fixtures/                  # Generic test data files (CSV, PDF, images)
 │   ├── example_bulk_upload.csv
 │   ├── example_resource.pdf

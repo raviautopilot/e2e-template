@@ -1,4 +1,4 @@
-package ui_test
+package google_test
 
 import (
 	"os"
@@ -9,10 +9,7 @@ import (
 
 func TestMain(m *testing.M) {
 	tests.SetupSuite()
-
 	exitCode := m.Run()
-
 	tests.TeardownSuite()
-
 	os.Exit(exitCode)
 }
