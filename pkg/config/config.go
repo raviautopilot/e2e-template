@@ -12,14 +12,6 @@ type Credentials struct {
 	Password string `json:"password"`
 }
 
-// MemberFormData holds example input field data for creating a new entity.
-type MemberFormData struct {
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-	Status string `json:"status"`
-}
-
 // Config holds the configuration values for the testing framework.
 type Config struct {
 	// Core settings
@@ -33,38 +25,22 @@ type Config struct {
 	AdminCredentials  Credentials `json:"adminCredentials"`
 	MemberCredentials Credentials `json:"memberCredentials"`
 
-	// Login form test IDs (data-testid attributes)
-	AdminLoginButtonTestID         string `json:"adminLoginButtonTestID"`
-	AdminLoginUsernameInputTestID string `json:"adminLoginUsernameInputTestID"`
-	AdminLoginPasswordInputTestID string `json:"adminLoginPasswordInputTestID"`
-	AdminLoginSubmitButtonTestID  string `json:"adminLoginSubmitButtonTestID"`
-	MemberLoginButtonTestID        string `json:"memberLoginButtonTestID"`
-	MemberLoginUsernameInputTestID string `json:"memberLoginUsernameInputTestID"`
-	MemberLoginPasswordInputTestID string `json:"memberLoginPasswordInputTestID"`
-	MemberLoginSubmitButtonTestID  string `json:"memberLoginSubmitButtonTestID"`
-	LogoutButtonTestID             string `json:"logoutButtonTestID"`
+	// UI test ID placeholders (1-2 per type: buttons, inputs)
+	LoginButtonTestID        string `json:"loginButtonTestID"`
+	SubmitButtonTestID       string `json:"submitButtonTestID"`
+	UsernameInputTestID      string `json:"usernameInputTestID"`
+	PasswordInputTestID      string `json:"passwordInputTestID"`
 
-	// Example: Create/Add form test IDs
-	AdminAddMemberButtonTestID       string `json:"adminAddMemberButtonTestID"`
-	AdminAddMemberNameInputTestID    string `json:"adminAddMemberNameInputTestID"`
-	AdminAddMemberEmailInputTestID   string `json:"adminAddMemberEmailInputTestID"`
-	AdminAddMemberSubmitButtonTestID string `json:"adminAddMemberSubmitButtonTestID"`
-	MemberSearchInputTestID          string `json:"memberSearchInputTestID"`
-	MemberDeleteButtonTestID         string `json:"memberDeleteButtonTestID"`
-	MemberConfirmDeleteButtonTestID  string `json:"memberConfirmDeleteButtonTestID"`
-	MemberEditButtonTestID           string `json:"memberEditButtonTestID"`
-	MemberSaveEditButtonTestID       string `json:"memberSaveEditButtonTestID"`
-
-	// Example: Bulk upload test IDs
-	AdminBulkUploadButtonTestID       string   `json:"adminBulkUploadButtonTestID"`
-	AdminBulkUploadFileInputTestID    string   `json:"adminBulkUploadFileInputTestID"`
-	AdminBulkUploadSubmitButtonTestID string   `json:"adminBulkUploadSubmitButtonTestID"`
-	BulkMemberEmails                  []string `json:"bulkMemberEmails"`
-	BulkMemberMobiles                 []string `json:"bulkMemberMobiles"`
-
-	// Example: New entity form data
-	NewMemberEmail    string         `json:"newMemberEmail"`
-	NewMemberFormData MemberFormData `json:"newMemberFormData"`
+	// Backward-compatible aliases
+	AdminLoginButtonTestID         string `json:"adminLoginButtonTestID,omitempty"`
+	AdminLoginUsernameInputTestID string `json:"adminLoginUsernameInputTestID,omitempty"`
+	AdminLoginPasswordInputTestID string `json:"adminLoginPasswordInputTestID,omitempty"`
+	AdminLoginSubmitButtonTestID  string `json:"adminLoginSubmitButtonTestID,omitempty"`
+	MemberLoginButtonTestID        string `json:"memberLoginButtonTestID,omitempty"`
+	MemberLoginUsernameInputTestID string `json:"memberLoginUsernameInputTestID,omitempty"`
+	MemberLoginPasswordInputTestID string `json:"memberLoginPasswordInputTestID,omitempty"`
+	MemberLoginSubmitButtonTestID  string `json:"memberLoginSubmitButtonTestID,omitempty"`
+	LogoutButtonTestID             string `json:"logoutButtonTestID,omitempty"`
 }
 
 // LoadConfig reads the configuration file from path and applies environment overrides.
@@ -84,6 +60,33 @@ func LoadConfig(path string) (*Config, error) {
 		if err := decoder.Decode(cfg); err != nil {
 			return nil, err
 		}
+	}
+
+	// Fallback to generic login/input testIDs if persona-specific fields are unset
+	if cfg.AdminLoginButtonTestID == "" {
+		cfg.AdminLoginButtonTestID = cfg.LoginButtonTestID
+	}
+	if cfg.AdminLoginUsernameInputTestID == "" {
+		cfg.AdminLoginUsernameInputTestID = cfg.UsernameInputTestID
+	}
+	if cfg.AdminLoginPasswordInputTestID == "" {
+		cfg.AdminLoginPasswordInputTestID = cfg.PasswordInputTestID
+	}
+	if cfg.AdminLoginSubmitButtonTestID == "" {
+		cfg.AdminLoginSubmitButtonTestID = cfg.SubmitButtonTestID
+	}
+
+	if cfg.MemberLoginButtonTestID == "" {
+		cfg.MemberLoginButtonTestID = cfg.AdminLoginButtonTestID
+	}
+	if cfg.MemberLoginUsernameInputTestID == "" {
+		cfg.MemberLoginUsernameInputTestID = cfg.AdminLoginUsernameInputTestID
+	}
+	if cfg.MemberLoginPasswordInputTestID == "" {
+		cfg.MemberLoginPasswordInputTestID = cfg.AdminLoginPasswordInputTestID
+	}
+	if cfg.MemberLoginSubmitButtonTestID == "" {
+		cfg.MemberLoginSubmitButtonTestID = cfg.AdminLoginSubmitButtonTestID
 	}
 
 	// Environment overrides
