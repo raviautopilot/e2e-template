@@ -39,6 +39,16 @@ fi
 SWAGGER_FLAG=""
 if [[ "$SWAGGER_SRC" == http://* ]] || [[ "$SWAGGER_SRC" == https://* ]]; then
     SWAGGER_FLAG="--swagger-url"
+    # Auto-detect Swagger UI URL and convert to doc.json if applicable
+    if [[ "$SWAGGER_SRC" =~ /index\.html?$ ]]; then
+        SWAGGER_JSON_GUESS=$(echo "$SWAGGER_SRC" | sed -E 's|/index\.html?$|/doc.json|')
+        echo "   ℹ Detected Swagger UI HTML URL. Auto-converting to: $SWAGGER_JSON_GUESS"
+        SWAGGER_SRC="$SWAGGER_JSON_GUESS"
+    elif [[ "$SWAGGER_SRC" =~ /swagger/?$ ]]; then
+        SWAGGER_JSON_GUESS="${SWAGGER_SRC%/}/doc.json"
+        echo "   ℹ Detected Swagger directory. Auto-converting to: $SWAGGER_JSON_GUESS"
+        SWAGGER_SRC="$SWAGGER_JSON_GUESS"
+    fi
 else
     SWAGGER_FLAG="--swagger-file"
     if [ ! -f "$SWAGGER_SRC" ]; then

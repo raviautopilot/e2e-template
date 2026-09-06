@@ -1,11 +1,14 @@
 package swagger
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -151,10 +154,11 @@ type PathItem = map[string]rawOp
 // ── Public API ──────────────────────────────────────────────────────────────
 
 // ParseFromURL fetches a swagger JSON from a URL and parses it.
-func ParseFromURL(url string) (*SwaggerSpec, error) {
-	resp, err := http.Get(url)
+// If the URL points to a Swagger UI HTML page, it automatically detects and resolves the JSON spec.
+func ParseFromURL(rawURL string) (*SwaggerSpec, error) {
+	resp, err := http.Get(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch swagger from %s: %w", url, err)
+		return nil, fmt.Errorf("failed to fetch swagger from %s: %w", rawURL, err)
 	}
 	defer resp.Body.Close()
 
@@ -167,7 +171,107 @@ func ParseFromURL(url string) (*SwaggerSpec, error) {
 		return nil, fmt.Errorf("failed to read swagger response: %w", err)
 	}
 
+	// Check if the response is HTML rather than JSON (e.g. Swagger UI index.html)
+	trimmed := bytes.TrimSpace(data)
+	if bytes.HasPrefix(trimmed, []byte("<")) || strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
+		return tryResolveSwaggerJSON(rawURL, data)
+	}
+
 	return parseJSON(data)
+}
+
+// tryResolveSwaggerJSON attempts to locate the swagger JSON specification
+// when given a Swagger UI HTML page URL (e.g. /swagger/index.html).
+func tryResolveSwaggerJSON(htmlURL string, htmlData []byte) (*SwaggerSpec, error) {
+	parsed, err := url.Parse(htmlURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL %s: %w", htmlURL, err)
+	}
+
+	var candidateURLs []string
+
+	// 1. Look for swagger-initializer.js in the HTML
+	initRegex := regexp.MustCompile(`["']([^"']*swagger-initializer\.js[^"']*)["']`)
+	if match := initRegex.FindSubmatch(htmlData); len(match) > 1 {
+		initRel, err := url.Parse(string(match[1]))
+		if err == nil {
+			initURL := parsed.ResolveReference(initRel).String()
+			if initResp, err := http.Get(initURL); err == nil && initResp.StatusCode == 200 {
+				initData, _ := io.ReadAll(initResp.Body)
+				initResp.Body.Close()
+				urlRegex := regexp.MustCompile(`url:\s*["']([^"']+)["']`)
+				if urlMatch := urlRegex.FindSubmatch(initData); len(urlMatch) > 1 {
+					specRel, err := url.Parse(string(urlMatch[1]))
+					if err == nil {
+						candidateURLs = append(candidateURLs, parsed.ResolveReference(specRel).String())
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Look for direct spec url in HTML
+	urlRegex := regexp.MustCompile(`url:\s*["']([^"']+\.json[^"']*)["']`)
+	if match := urlRegex.FindSubmatch(htmlData); len(match) > 1 {
+		specRel, err := url.Parse(string(match[1]))
+		if err == nil {
+			candidateURLs = append(candidateURLs, parsed.ResolveReference(specRel).String())
+		}
+	}
+
+	// 3. Common relative candidate paths
+	for _, rel := range []string{"doc.json", "swagger.json", "openapi.json", "v2/api-docs"} {
+		relURL, _ := url.Parse(rel)
+		candidateURLs = append(candidateURLs, parsed.ResolveReference(relURL).String())
+	}
+
+	// 4. If path ended with index.html or index.htm
+	cleanPath := strings.TrimSuffix(parsed.Path, "index.html")
+	cleanPath = strings.TrimSuffix(cleanPath, "index.htm")
+	cleanPath = strings.TrimSuffix(cleanPath, "/")
+	candidateURLs = append(candidateURLs, fmt.Sprintf("%s://%s%s/doc.json", parsed.Scheme, parsed.Host, cleanPath))
+	candidateURLs = append(candidateURLs, fmt.Sprintf("%s://%s%s/swagger.json", parsed.Scheme, parsed.Host, cleanPath))
+	candidateURLs = append(candidateURLs, fmt.Sprintf("%s://%s/swagger/doc.json", parsed.Scheme, parsed.Host))
+	candidateURLs = append(candidateURLs, fmt.Sprintf("%s://%s/swagger/swagger.json", parsed.Scheme, parsed.Host))
+
+	// Deduplicate preserving order
+	seen := make(map[string]bool)
+	var uniqueCandidates []string
+	for _, c := range candidateURLs {
+		if c != "" && !seen[c] && c != htmlURL {
+			seen[c] = true
+			uniqueCandidates = append(uniqueCandidates, c)
+		}
+	}
+
+	for _, cand := range uniqueCandidates {
+		resp, err := http.Get(cand)
+		if err != nil || resp.StatusCode != 200 {
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
+			}
+			continue
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			continue
+		}
+
+		trimmed := bytes.TrimSpace(data)
+		if bytes.HasPrefix(trimmed, []byte("<")) {
+			continue
+		}
+
+		spec, err := parseJSON(data)
+		if err == nil && spec != nil {
+			fmt.Printf("ℹ Auto-detected Swagger UI HTML page at %s\n", htmlURL)
+			fmt.Printf("ℹ Resolved Swagger JSON spec at: %s\n", cand)
+			return spec, nil
+		}
+	}
+
+	return nil, fmt.Errorf("URL returned HTML (Swagger UI page) instead of Swagger JSON.\nTo fix: please provide the direct Swagger JSON URL (e.g. %s://%s/swagger/doc.json)", parsed.Scheme, parsed.Host)
 }
 
 // ParseFromFile reads a swagger JSON from a local file and parses it.
@@ -191,6 +295,11 @@ func ParseFromReader(r io.Reader) (*SwaggerSpec, error) {
 // ── Internal parsing ────────────────────────────────────────────────────────
 
 func parseJSON(data []byte) (*SwaggerSpec, error) {
+	trimmed := bytes.TrimSpace(data)
+	if bytes.HasPrefix(trimmed, []byte("<")) {
+		return nil, fmt.Errorf("received HTML/XML instead of Swagger JSON (starts with '<'); please provide a Swagger JSON endpoint")
+	}
+
 	var raw rawSwagger
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse swagger JSON: %w", err)
