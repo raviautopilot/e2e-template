@@ -39,7 +39,11 @@ The API test suite reads its configuration from `config.json`. You can modify th
 # Run all API tests
 ./run-api-tests.sh
 
-# Run all API tests in a specific package
+# Run tests for a specific service (shorthand)
+./run-api-tests.sh twincore
+./run-api-tests.sh httpbin
+
+# Run all API tests in a specific package (full path)
 ./run-api-tests.sh ./tests/api/httpbin/...
 ./run-api-tests.sh ./tests/api/github/...
 ./run-api-tests.sh ./tests/api/jsonplaceholder/...

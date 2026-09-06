@@ -22,6 +22,7 @@ graphify-out/.rebuild.lock
 *.tgz
 rbot.exe
 rbot.bin
+/generate-tests
 
 # ============================================
 # OPERATING SYSTEM FILES
