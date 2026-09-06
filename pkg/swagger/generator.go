@@ -24,7 +24,7 @@ type GenerateResult struct {
 	Files []string // list of created file paths
 }
 
-// Generate writes Go test files from a parsed swagger spec.
+// Generate writes Go test files from a parsed swagger spec into per-group packages.
 func Generate(cfg GenerateConfig) (*GenerateResult, error) {
 	if err := os.MkdirAll(cfg.OutputDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create output directory %s: %w", cfg.OutputDir, err)
@@ -49,65 +49,155 @@ func Generate(cfg GenerateConfig) (*GenerateResult, error) {
 		groups = filtered
 	}
 
-	// 1. Generate main_test.go
-	mainPath := filepath.Join(cfg.OutputDir, "main_test.go")
-	if err := writeTemplate(mainPath, mainTestTmpl, cfg); err != nil {
-		return nil, fmt.Errorf("failed to generate main_test.go: %w", err)
-	}
-	result.Files = append(result.Files, mainPath)
-
-	// 2. Generate models.go with all referenced definitions
-	modelsPath := filepath.Join(cfg.OutputDir, "models_test.go")
-	referencedModels := collectReferencedModels(groups, spec.Definitions)
-	modelData := struct {
-		GenerateConfig
-		Models []Model
-	}{cfg, referencedModels}
-	if err := writeTemplate(modelsPath, modelsTmpl, modelData); err != nil {
-		return nil, fmt.Errorf("failed to generate models.go: %w", err)
-	}
-	result.Files = append(result.Files, modelsPath)
-
-	// 3. Generate test files per group
-	for idx, group := range groups {
-		seqNum := idx + 1
-
-		// Determine the template to use
-		tmplStr := crudTestTmpl
-		if strings.ToLower(group.Tag) == "system" || isHealthOnlyGroup(group) {
-			tmplStr = healthTestTmpl
+	// For each endpoint group, create a dedicated package directory with single-test files
+	for _, group := range groups {
+		groupDirName := sanitizeFileName(group.Tag)
+		groupDir := filepath.Join(cfg.OutputDir, groupDirName)
+		if err := os.MkdirAll(groupDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create package directory %s: %w", groupDir, err)
 		}
 
-		fileName := fmt.Sprintf("%02d_%s_test.go", seqNum, sanitizeFileName(group.Tag))
-		filePath := filepath.Join(cfg.OutputDir, fileName)
+		packageName := fmt.Sprintf("%s_%s", cfg.ServiceName, groupDirName)
 
-		data := struct {
+		// 1. main_test.go in group package
+		mainPath := filepath.Join(groupDir, "main_test.go")
+		mainData := struct {
 			GenerateConfig
-			Group      EndpointGroup
-			SeqNum     int
-			ModelName  string
-			GoModelName string
-			Definitions map[string]Model
-		}{
-			GenerateConfig: cfg,
-			Group:          group,
-			SeqNum:         seqNum,
-			ModelName:      group.GetRequestModel(),
-			GoModelName:    "",
-			Definitions:    spec.Definitions,
+			PackageName string
+		}{cfg, packageName}
+		if err := writeTemplate(mainPath, mainTestTmpl, mainData); err != nil {
+			return nil, fmt.Errorf("failed to generate %s: %w", mainPath, err)
 		}
+		result.Files = append(result.Files, mainPath)
 
-		// Resolve GoModelName
-		if data.ModelName != "" {
-			if m, ok := spec.Definitions[data.ModelName]; ok {
-				data.GoModelName = m.GoName
+		// 2. models_test.go in group package
+		modelsPath := filepath.Join(groupDir, "models_test.go")
+		referencedModels := collectReferencedModels([]EndpointGroup{group}, spec.Definitions)
+		modelData := struct {
+			GenerateConfig
+			PackageName string
+			Models      []Model
+		}{cfg, packageName, referencedModels}
+		if err := writeTemplate(modelsPath, modelsTmpl, modelData); err != nil {
+			return nil, fmt.Errorf("failed to generate %s: %w", modelsPath, err)
+		}
+		result.Files = append(result.Files, modelsPath)
+
+		// 3. Test files in group package (one test per file)
+		if strings.ToLower(group.Tag) == "system" || isHealthOnlyGroup(group) {
+			healthPath := filepath.Join(groupDir, "01_health_test.go")
+			data := struct {
+				GenerateConfig
+				PackageName string
+				Group       EndpointGroup
+				Definitions map[string]Model
+			}{cfg, packageName, group, spec.Definitions}
+			if err := writeTemplate(healthPath, healthTestTmpl, data); err != nil {
+				return nil, fmt.Errorf("failed to generate %s: %w", healthPath, err)
 			}
-		}
+			result.Files = append(result.Files, healthPath)
+		} else {
+			modelName := group.GetRequestModel()
 
-		if err := writeTemplate(filePath, tmplStr, data); err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", fileName, err)
+			// 01_list_test.go
+			if ep := group.ListEndpoint(); ep != nil {
+				listPath := filepath.Join(groupDir, "01_list_test.go")
+				data := struct {
+					GenerateConfig
+					PackageName string
+					Group       EndpointGroup
+					Endpoint    *Endpoint
+					ModelName   string
+					Definitions map[string]Model
+				}{cfg, packageName, group, ep, modelName, spec.Definitions}
+				if err := writeTemplate(listPath, listTestTmpl, data); err != nil {
+					return nil, fmt.Errorf("failed to generate %s: %w", listPath, err)
+				}
+				result.Files = append(result.Files, listPath)
+			}
+
+			// 02_create_test.go
+			if ep := group.CreateEndpoint(); ep != nil {
+				createPath := filepath.Join(groupDir, "02_create_test.go")
+				data := struct {
+					GenerateConfig
+					PackageName string
+					Group       EndpointGroup
+					Endpoint    *Endpoint
+					ModelName   string
+					Definitions map[string]Model
+				}{cfg, packageName, group, ep, modelName, spec.Definitions}
+				if err := writeTemplate(createPath, createTestTmpl, data); err != nil {
+					return nil, fmt.Errorf("failed to generate %s: %w", createPath, err)
+				}
+				result.Files = append(result.Files, createPath)
+			}
+
+			// 03_get_test.go
+			if ep := group.GetByIDEndpoint(); ep != nil {
+				getPath := filepath.Join(groupDir, "03_get_test.go")
+				data := struct {
+					GenerateConfig
+					PackageName string
+					Group       EndpointGroup
+					Endpoint    *Endpoint
+					ModelName   string
+					Definitions map[string]Model
+				}{cfg, packageName, group, ep, modelName, spec.Definitions}
+				if err := writeTemplate(getPath, getTestTmpl, data); err != nil {
+					return nil, fmt.Errorf("failed to generate %s: %w", getPath, err)
+				}
+				result.Files = append(result.Files, getPath)
+			}
+
+			// 04_update_test.go
+			if ep := group.UpdateEndpoint(); ep != nil {
+				updatePath := filepath.Join(groupDir, "04_update_test.go")
+				data := struct {
+					GenerateConfig
+					PackageName string
+					Group       EndpointGroup
+					Endpoint    *Endpoint
+					ModelName   string
+					Definitions map[string]Model
+				}{cfg, packageName, group, ep, modelName, spec.Definitions}
+				if err := writeTemplate(updatePath, updateTestTmpl, data); err != nil {
+					return nil, fmt.Errorf("failed to generate %s: %w", updatePath, err)
+				}
+				result.Files = append(result.Files, updatePath)
+			}
+
+			// 05_delete_test.go
+			if ep := group.DeleteEndpoint(); ep != nil {
+				deletePath := filepath.Join(groupDir, "05_delete_test.go")
+				data := struct {
+					GenerateConfig
+					PackageName string
+					Group       EndpointGroup
+					Endpoint    *Endpoint
+					ModelName   string
+					Definitions map[string]Model
+				}{cfg, packageName, group, ep, modelName, spec.Definitions}
+				if err := writeTemplate(deletePath, deleteTestTmpl, data); err != nil {
+					return nil, fmt.Errorf("failed to generate %s: %w", deletePath, err)
+				}
+				result.Files = append(result.Files, deletePath)
+			}
+
+			// 06_parameterized_test.go (table-driven test)
+			paramPath := filepath.Join(groupDir, "06_parameterized_test.go")
+			data := struct {
+				GenerateConfig
+				PackageName string
+				Group       EndpointGroup
+				ModelName   string
+				Definitions map[string]Model
+			}{cfg, packageName, group, modelName, spec.Definitions}
+			if err := writeTemplate(paramPath, parameterizedTestTmpl, data); err != nil {
+				return nil, fmt.Errorf("failed to generate %s: %w", paramPath, err)
+			}
+			result.Files = append(result.Files, paramPath)
 		}
-		result.Files = append(result.Files, filePath)
 	}
 
 	return result, nil
@@ -314,10 +404,10 @@ func exampleValue(f Field) string {
 			return fmt.Sprintf("%q", fmt.Sprintf("%v", v))
 		}
 	}
-	// Generate sensible defaults by type
+	// Generate unique sensible defaults by type
 	switch f.GoType {
 	case "string":
-		return fmt.Sprintf("%q", "test-"+f.JSONName)
+		return fmt.Sprintf("fmt.Sprintf(\"%s-%%d\", time.Now().UnixNano()%%100000)", f.JSONName)
 	case "int":
 		return "1"
 	case "bool":
@@ -342,7 +432,7 @@ func exampleValueUpdated(f Field) string {
 	}
 	switch f.GoType {
 	case "string":
-		return fmt.Sprintf("%q", "updated-"+f.JSONName)
+		return fmt.Sprintf("fmt.Sprintf(\"upd-%s-%%d\", time.Now().UnixNano()%%100000)", f.JSONName)
 	case "int":
 		return "2"
 	case "bool":

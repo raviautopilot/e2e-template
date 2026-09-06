@@ -2,6 +2,7 @@ package actions
 
 import (
 	"fmt"
+	"reflect"
 
 	"e2e-template/pkg/client"
 	"e2e-template/tests"
@@ -34,7 +35,11 @@ func PostAndExpectCreated(tc *tests.TestContext, c *client.Client, path string, 
 // PostAndExpectStatus sends a POST request and expects a specific HTTP status code.
 func PostAndExpectStatus(tc *tests.TestContext, c *client.Client, path string, body interface{}, wantStatus int) {
 	var dummy map[string]interface{}
-	err := c.SendHttpRequest("POST", path, nil, body, &dummy, nil)
+	reqBodyPtr := body
+	if body != nil && reflect.ValueOf(body).Kind() != reflect.Ptr {
+		reqBodyPtr = &body
+	}
+	err := c.SendHttpRequest("POST", path, nil, reqBodyPtr, &dummy, nil)
 	if wantStatus >= 200 && wantStatus < 300 {
 		if err != nil {
 			tc.FailureReason = fmt.Sprintf("Expected %d, got error: %v", wantStatus, err)
@@ -47,8 +52,8 @@ func PostAndExpectStatus(tc *tests.TestContext, c *client.Client, path string, b
 			tc.FailureReason = fmt.Sprintf("Expected %d, got 200 OK", wantStatus)
 			tc.Errorf("Expected %d, got 200 OK", wantStatus)
 		} else if err.StatusCode() != wantStatus {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got %d", wantStatus, err.StatusCode())
-			tc.Errorf("Expected %d, got %d", wantStatus, err.StatusCode())
+			tc.FailureReason = fmt.Sprintf("Expected %d, got %d (%v)", wantStatus, err.StatusCode(), err)
+			tc.Errorf("Expected %d, got %d (%v)", wantStatus, err.StatusCode(), err)
 		} else {
 			tc.Actual = fmt.Sprintf("HTTP %d as expected", wantStatus)
 		}

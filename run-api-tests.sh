@@ -33,6 +33,13 @@ for arg in "$@"; do
         HAS_PKG=true
         [ -z "$PKG_TAG" ] && PKG_TAG="$arg"
         GO_TEST_ARGS+=("./tests/api/$arg/...")
+    # Check if arg is a service_group shorthand (e.g. "twinconfig_dependencies" -> tests/api/twinconfig/dependencies)
+    elif [[ "$arg" == *_* ]] && [ -d "tests/api/${arg%%_*}/${arg#*_}" ]; then
+        HAS_PKG=true
+        svc="${arg%%_*}"
+        grp="${arg#*_}"
+        [ -z "$PKG_TAG" ] && PKG_TAG="$arg"
+        GO_TEST_ARGS+=("./tests/api/$svc/$grp/...")
     # Check if arg is an explicit package path
     elif [[ "$arg" == tests/api/* ]] || [[ "$arg" == ./tests/api/* ]]; then
         HAS_PKG=true
