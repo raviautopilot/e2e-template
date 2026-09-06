@@ -129,7 +129,15 @@ func TestMyPageJourney(t *testing.T) {
 
 ## 6. Test Evidence & Screenshots
 
-Every UI test execution records artifacts under `evidence/run-<timestamp>/`:
-- **Screenshots**: Automatically captured on key transitions and errors at `evidence/run-<timestamp>/screenshots/<TestName>/`
-- **Interactive HTML Report**: `evidence/run-<timestamp>/reports/report.html` (includes embedded screenshots and execution breakdown)
-- **Markdown Report**: `evidence/run-<timestamp>/reports/report.md`
+Every UI test execution records artifacts in meaningful, test-scoped directories under `evidence/`:
+- **Evidence Run Directory**: `evidence/run-ui-<target>-<timestamp>/`
+  - When running a specific test via `-run <TestName>`, `<target>` reflects the test name (e.g., `evidence/run-ui-TestUI_Google_01_SearchJourney-2026-09-06_18-45-00/`).
+  - When targeting a package (e.g. `./tests/ui/google/...`), `<target>` reflects the package (e.g., `evidence/run-ui-google-2026-09-06_18-45-00/`).
+  - When running all tests, `<target>` defaults to `all` (e.g., `evidence/run-ui-all-2026-09-06_18-45-00/`).
+
+### Evidence Artifacts:
+- **Screenshots**: Captured on transitions and failures at `evidence/run-ui-<target>-<timestamp>/screenshots/<TestName>/`
+- **Network Requests**: Intercepted browser request traces at `evidence/run-ui-<target>-<timestamp>/requests/<TestName>/`
+- **Interactive HTML Report**: `evidence/run-ui-<target>-<timestamp>/reports/report.html` (includes lightbox viewer and step screenshots linked to each test)
+- **Markdown Report**: `evidence/run-ui-<target>-<timestamp>/test-report.md` (summary table with evidence links)
+

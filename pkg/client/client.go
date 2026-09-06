@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +58,7 @@ type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
 	LogDir     string
+	TestName   string
 	mu         sync.Mutex
 	LastError  error
 }
@@ -69,6 +72,13 @@ func NewClient(baseURL string, timeout time.Duration, logDir string) *Client {
 		},
 		LogDir: logDir,
 	}
+}
+
+// SetTestName sets the test name for meaningful request/response file naming.
+func (c *Client) SetTestName(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.TestName = name
 }
 
 // SendHttpRequest executes the HTTP request, validates input/output pointers, performs auth, and logs details.
@@ -198,6 +208,27 @@ func (c *Client) SendHttpRequest(method string, path string, headers map[string]
 	}
 }
 
+// detectCallerTestName inspects the call stack to find the active Go test function name.
+func detectCallerTestName() string {
+	for skip := 1; skip < 30; skip++ {
+		pc, _, _, ok := runtime.Caller(skip)
+		if !ok {
+			break
+		}
+		fnName := runtime.FuncForPC(pc).Name()
+		// e.g. "e2e-template/tests/api/httpbin_test.TestAPI_HttpBin_01_GetEcho.func1"
+		parts := strings.Split(fnName, "/")
+		lastPart := parts[len(parts)-1]
+		dotParts := strings.Split(lastPart, ".")
+		for _, dotPart := range dotParts {
+			if strings.HasPrefix(dotPart, "Test") && !strings.HasPrefix(dotPart, "TestContext") && !strings.HasPrefix(dotPart, "Testing") {
+				return dotPart
+			}
+		}
+	}
+	return ""
+}
+
 // logExchange logs the request/response details to disk.
 func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []byte, resp *http.Response, respBody []byte, err error) {
 	now := time.Now()
@@ -214,6 +245,24 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 		return
 	}
 
+	testTag := c.TestName
+	if testTag == "" {
+		testTag = detectCallerTestName()
+	}
+	if testTag != "" {
+		testTag = strings.ReplaceAll(testTag, "/", "_")
+		testTag = strings.ReplaceAll(testTag, " ", "_")
+	}
+
+	var reqFileName, respFileName string
+	if testTag != "" {
+		reqFileName = fmt.Sprintf("%s-%s-%s-request.json", testTag, timePrefix, suffix)
+		respFileName = fmt.Sprintf("%s-%s-%s-response.json", testTag, timePrefix, suffix)
+	} else {
+		reqFileName = fmt.Sprintf("%s-%s-request.json", timePrefix, suffix)
+		respFileName = fmt.Sprintf("%s-%s-response.json", timePrefix, suffix)
+	}
+
 	// Prepare Request JSON Log
 	reqHeadersMap := make(map[string][]string)
 	for k, v := range req.Header {
@@ -227,13 +276,14 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 
 	reqLog := map[string]interface{}{
 		"timestamp": startTime.Format(time.RFC3339Nano),
+		"test_name": testTag,
 		"method":    req.Method,
 		"url":       req.URL.String(),
 		"headers":   reqHeadersMap,
 		"body":      reqBodyJSON,
 	}
 
-	reqFilePath := filepath.Join(baseDir, fmt.Sprintf("%s-%s-request.json", timePrefix, suffix))
+	reqFilePath := filepath.Join(baseDir, reqFileName)
 	reqFile, fileErr := os.Create(reqFilePath)
 	if fileErr == nil {
 		encoder := json.NewEncoder(reqFile)
@@ -257,6 +307,7 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 
 		respLog = map[string]interface{}{
 			"timestamp":   now.Format(time.RFC3339Nano),
+			"test_name":   testTag,
 			"status_code": resp.StatusCode,
 			"headers":     respHeadersMap,
 			"body":        respBodyJSON,
@@ -269,11 +320,12 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 		}
 		respLog = map[string]interface{}{
 			"timestamp": now.Format(time.RFC3339Nano),
+			"test_name": testTag,
 			"error":     errMsg,
 		}
 	}
 
-	respFilePath := filepath.Join(baseDir, fmt.Sprintf("%s-%s-response.json", timePrefix, suffix))
+	respFilePath := filepath.Join(baseDir, respFileName)
 	respFile, fileErr := os.Create(respFilePath)
 	if fileErr == nil {
 		encoder := json.NewEncoder(respFile)

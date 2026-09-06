@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	texttemplate "text/template"
 	"time"
@@ -32,6 +33,7 @@ type TestResult struct {
 	FailureReason string        `json:"failure_reason,omitempty"`
 	Screenshot    string        `json:"screenshot,omitempty"`
 	Screenshots   []string      `json:"screenshots,omitempty"`
+	RequestLogs   []string      `json:"request_logs,omitempty"`
 	Timestamp     time.Time     `json:"timestamp"`
 }
 
@@ -51,6 +53,9 @@ type Summary struct {
 	Passed           int           `json:"passed"`
 	Failed           int           `json:"failed"`
 	Skipped          int           `json:"skipped"`
+	SuiteName        string        `json:"suite_name,omitempty"`
+	TargetName       string        `json:"target_name,omitempty"`
+	RunID            string        `json:"run_id,omitempty"`
 	StartTime        time.Time     `json:"start_time"`
 	EndTime          time.Time     `json:"end_time"`
 	TotalDuration    time.Duration `json:"total_duration"`
@@ -138,6 +143,15 @@ func (r *Reporter) GenerateReports(outputDir string) error {
 	r.Summary.EndTime = time.Now()
 	r.Summary.TotalDuration = r.Summary.EndTime.Sub(r.Summary.StartTime)
 	r.Summary.TotalDurationStr = r.Summary.TotalDuration.Round(time.Millisecond).String()
+	if r.Summary.SuiteName == "" {
+		r.Summary.SuiteName = os.Getenv("E2E_SUITE_NAME")
+	}
+	if r.Summary.TargetName == "" {
+		r.Summary.TargetName = os.Getenv("E2E_TARGET_NAME")
+	}
+	if r.Summary.RunID == "" {
+		r.Summary.RunID = os.Getenv("E2E_RUN_TIMESTAMP")
+	}
 	r.mu.Unlock()
 
 	if err := os.MkdirAll(outputDir, 0777); err != nil {
@@ -175,6 +189,15 @@ func (r *Reporter) GenerateReports(outputDir string) error {
 		if err := json.Unmarshal(data, &existingReporter); err == nil {
 			existingResults = existingReporter.Results
 			existingStartTime = existingReporter.Summary.StartTime
+			if r.Summary.SuiteName == "" && existingReporter.Summary.SuiteName != "" {
+				r.Summary.SuiteName = existingReporter.Summary.SuiteName
+			}
+			if r.Summary.TargetName == "" && existingReporter.Summary.TargetName != "" {
+				r.Summary.TargetName = existingReporter.Summary.TargetName
+			}
+			if r.Summary.RunID == "" && existingReporter.Summary.RunID != "" {
+				r.Summary.RunID = existingReporter.Summary.RunID
+			}
 		}
 	}
 
@@ -236,6 +259,68 @@ func (r *Reporter) GenerateReports(outputDir string) error {
 		r.Summary.TotalDuration = r.Summary.EndTime.Sub(r.Summary.StartTime)
 		r.Summary.TotalDurationStr = r.Summary.TotalDuration.Round(time.Millisecond).String()
 	}
+
+	// Discover and link test evidence (screenshots and request logs) from run directories
+	runDir := filepath.Dir(outputDir)
+	requestsBaseDir := filepath.Join(runDir, "requests")
+	screenshotsBaseDir := filepath.Join(runDir, "screenshots")
+
+	for i := range mergedResults {
+		res := &mergedResults[i]
+		sanitizedName := strings.ReplaceAll(res.Name, "/", "_")
+		sanitizedName = strings.ReplaceAll(sanitizedName, " ", "_")
+
+		// 1. Discover request logs for this test
+		if len(res.RequestLogs) == 0 {
+			testReqDir := filepath.Join(requestsBaseDir, sanitizedName)
+			if entries, err := os.ReadDir(testReqDir); err == nil {
+				for _, entry := range entries {
+					if !entry.IsDir() {
+						res.RequestLogs = append(res.RequestLogs, "../requests/"+sanitizedName+"/"+entry.Name())
+					}
+				}
+			}
+
+			// Also scan date subdirectories in requests/ (e.g. requests/YYYY-MM-DD/<TestName>-...)
+			if dateEntries, err := os.ReadDir(requestsBaseDir); err == nil {
+				for _, dateEntry := range dateEntries {
+					if dateEntry.IsDir() {
+						dateDir := filepath.Join(requestsBaseDir, dateEntry.Name())
+						if files, fErr := os.ReadDir(dateDir); fErr == nil {
+							for _, f := range files {
+								if !f.IsDir() {
+									cleanCat := strings.TrimSuffix(res.Category, "_test.go")
+									normCat := strings.ToLower(strings.ReplaceAll(cleanCat, "_", ""))
+									normFile := strings.ToLower(strings.ReplaceAll(f.Name(), "_", ""))
+									normName := strings.ToLower(strings.ReplaceAll(res.Name, "_", ""))
+									normName = strings.ReplaceAll(normName, " ", "")
+
+									if strings.Contains(f.Name(), sanitizedName) ||
+										(normName != "" && strings.Contains(normFile, normName)) ||
+										(normCat != "" && strings.Contains(normFile, normCat)) {
+										res.RequestLogs = append(res.RequestLogs, "../requests/"+dateEntry.Name()+"/"+f.Name())
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 2. Discover screenshots for this test if not already attached
+		if len(res.Screenshots) == 0 {
+			testScDir := filepath.Join(screenshotsBaseDir, sanitizedName)
+			if entries, err := os.ReadDir(testScDir); err == nil {
+				for _, entry := range entries {
+					if !entry.IsDir() {
+						res.Screenshots = append(res.Screenshots, "../screenshots/"+sanitizedName+"/"+entry.Name())
+					}
+				}
+			}
+		}
+	}
+
 	r.Results = mergedResults
 
 	// Build GroupedResults by Category / File
