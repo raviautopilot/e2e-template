@@ -1,15 +1,18 @@
 # Go E2E Testing Framework
 
-A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It supports automated API testing via a type-safe HTTP client wrapper, UI automation using Selenium WebDriver following the Page Object Model (POM) pattern, custom HTML/JSON reporting, and granular request/response logging.
+A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It supports automated API testing via a type-safe HTTP client wrapper, UI automation using Selenium WebDriver following the Page Object Model (POM) and Persona/Action pattern, custom HTML/JSON reporting, and granular request/response logging.
 
 ---
 
 ## Features
 
 - **Extensible API Client**: Auto-marshaling, struct pointer safety checks, and an interface-driven Authentication manager (Bearer, Basic, API Key, mTLS, and SSH signing).
+- **Reusable API Action Helpers**: Pre-built assertions and action helpers in `pkg/api/actions/` (`GetAndExpectOK`, `PostAndExpectCreated`, `AssertNotEmpty`, etc.).
 - **Selenium UI Integration**: Base Page Object wrappers handling dynamic CSS/XPath element selection, waiting hooks, interaction wrappers, and automated screenshots on test failure.
+- **Persona & Action Pattern**: High-level declarative test actions (`pkg/ui/actions/`) representing realistic user journeys (Public, Member, Admin).
+- **Batteries-Included Public Tests**: Ready-to-run tests against public internet endpoints (Google, GitHub, example.com for UI; httpbin, GitHub, JSONPlaceholder for API) so you can verify the framework immediately without setting up a backend.
 - **Observability Logging**: Automatic date-organized file logging of request and response payloads at `evidence/run-<timestamp>/requests/`.
-- **Beautiful HTML/JSON Reporting**: Interactive responsive test results dashboard compiled automatically after each execution.
+- **Interactive HTML & Markdown Reporting**: Responsive test results dashboard compiled automatically after each execution.
 
 ---
 
@@ -20,6 +23,7 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 ├── go.sum                     # Dependency checksums
 ├── Makefile                   # Execution shortcuts
 ├── config.json                # Environment configuration (adapt to your project)
+├── docker-compose.yml         # Standalone Selenium Chrome container (optional)
 ├── pkg/
 │   ├── config/
 │   │   └── config.go          # Config loader and environment variable overrides
@@ -28,16 +32,20 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 │   ├── client/
 │   │   ├── auth.go            # Authentication interface and sub-types
 │   │   └── client.go          # Custom HTTP client wrapper and JSON logger
+│   ├── api/
+│   │   └── actions/
+│   │       └── api_actions.go # Reusable API test action helpers
 │   ├── ui/
 │   │   ├── driver.go          # Selenium WebDriver connection & option manager
 │   │   ├── pom.go             # Page Object Model helper wrappers
 │   │   ├── pages/
 │   │   │   ├── home_page.go          # Example home page object
-│   │   │   └── login_page.go         # Example login page object
+│   │   │   ├── login_page.go         # Example login page object
+│   │   │   └── admin_dashboard_page.go # Example admin dashboard page object
 │   │   └── actions/
-│   │       ├── admin_actions.go      # Example admin user actions
-│   │       ├── member_actions.go     # Example member user actions
-│   │       └── public_actions.go     # Example public user actions
+│   │       ├── public_actions.go     # Persona & public user actions (GoToHome, VerifyPageTitle, etc.)
+│   │       ├── member_actions.go     # Member persona skeleton actions
+│   │       └── admin_actions.go      # Admin persona skeleton actions
 │   └── report/
 │       ├── report.go          # Result collector and HTML compiler
 │       ├── template.html      # Visual dashboard layout template
@@ -48,19 +56,26 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 │   ├── api/
 │   │   ├── main_test.go       # API package bootstrap
 │   │   ├── types_test.go      # Response type definitions
-│   │   └── example_api_test.go  # Example API test cases
+│   │   ├── public_api_test.go # Working tests targeting public APIs (httpbin, GitHub, JSONPlaceholder)
+│   │   └── example_api_test.go# Example skeleton tests for custom backend
 │   └── ui/
 │       ├── main_test.go       # UI package bootstrap
-│       └── example_ui_test.go   # Example UI test cases
-├── fixtures/                  # Test data files (CSV, JSON, PDF, images)
+│       ├── public_ui_test.go  # Working tests targeting public sites (Google, GitHub, example.com)
+│       └── example_ui_test.go # Example skeleton tests for custom frontend
+├── fixtures/                  # Generic test data files (CSV, PDF, images)
 │   ├── example_bulk_upload.csv
 │   ├── example_resource.pdf
 │   └── example_image.png
 ├── docs/
 │   ├── MASTER_API_TESTING_PROMPT.md  # AI prompt template for generating API tests
 │   └── references/                   # Reference documentation
-├── archives/                  # Historical reference documents
-└── scripts/                   # Helper scripts (publishing, npm, graphify, etc.)
+├── run-tests.sh               # Run both UI and API test suites with Chromedriver management
+├── run-api-tests.sh           # Run API test suite
+├── run-ui-tests.sh            # Run UI test suite with Chromedriver management
+└── scripts/                   # Validation and helper scripts
+    ├── validate-template.sh   # Validates template integrity and checks for domain leaks
+    ├── install-graphify.sh    # Graphify installation script
+    └── token-saver.sh         # Graphify knowledge graph extractor
 ```
 
 ---
@@ -74,7 +89,7 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
      sudo apt-get update
      sudo apt-get install -y chromium-browser chromium-chromedriver
      ```
-   - Ensure `chromedriver` is available in your PATH or running on port `9515`.
+   - Chromedriver is automatically launched and stopped by `./run-ui-tests.sh` and `./run-tests.sh`.
 
 ---
 
@@ -86,7 +101,16 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
    cd /path/to/your-new-test-project
    ```
 
-2. **Configure your targets** in `config.json`:
+2. **Run out-of-the-box public tests immediately**:
+   ```bash
+   # Run public API tests against httpbin, GitHub, JSONPlaceholder
+   ./run-api-tests.sh -run TestAPI_Public
+
+   # Run public UI tests against Google, GitHub, example.com
+   ./run-ui-tests.sh -run TestUI_Public
+   ```
+
+3. **Configure your own application targets** in `config.json`:
    ```json
    {
      "baseUrl": "https://api.yourapp.com",
@@ -97,24 +121,9 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
    }
    ```
 
-3. **Install dependencies**:
+4. **Run all tests**:
    ```bash
-   make deps
-   ```
-
-4. **Start Chromedriver**:
-   ```bash
-   chromedriver --port=9515
-   ```
-
-5. **Run example tests**:
-   ```bash
-   make test-all
-   ```
-
-6. **Run in Headless Mode (CI/VMs)**:
-   ```bash
-   E2E_HEADLESS=true make test-all
+   ./run-tests.sh
    ```
 
 ---
@@ -123,52 +132,37 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 
 ### 1. API Test Cases
 
-Create tests using `RunAPITestWithDetails` for rich reporting, or `RunAPITest` for simpler cases:
+Use the pre-built helpers in `pkg/api/actions/`:
 
 ```go
 func TestAPI_GetUser(t *testing.T) {
-    tests.RunAPITestWithDetails(
-        t,
-        "GET /users/1 returns a valid user",
-        "Verifies that fetching user ID 1 returns a non-empty name and email.",
-        "HTTP 200 OK with non-empty name and email",
-        func(tc *tests.TestContext) {
-            var user UserResponse
-            err := tc.Client.SendHttpRequest("GET", "/users/1", nil, nil, &user, nil)
-            if err != nil {
-                tc.FailureReason = fmt.Sprintf("Request failed: %v", err)
-                tc.Fatalf("Request failed: %v", err)
-            }
-            tc.Actual = fmt.Sprintf("HTTP 200 OK, name=%q, email=%q", user.Name, user.Email)
-            if user.Name == "" {
-                tc.Errorf("Expected non-empty name")
-            }
-        },
-    )
+    tests.RunAPITest(t, "GET /users/1 returns a valid user", func(t *testing.T, tc *tests.TestContext) {
+        c := client.NewClient("https://jsonplaceholder.typicode.com", 10*time.Second, tests.ExecutionLogDir)
+
+        var user UserResponse
+        actions.GetAndExpectOK(tc, c, "/users/1", &user)
+        actions.AssertNotEmpty(tc, "Username", user.Username)
+        actions.AssertEquals(tc, "ID", user.ID, 1)
+    })
 }
 ```
 
 ### 2. UI Test Cases
 
-Create page objects in `pkg/ui/pages/` and run them with `RunUITest`:
+Use the Persona/Action pattern from `pkg/ui/actions/`:
 
 ```go
-func TestUI_LoginFlow(t *testing.T) {
-    tests.RunUITest(t, "Admin Login Flow", func(t *testing.T, page *ui.Page) {
-        cfg := tests.GlobalConfig
+func TestUI_ExampleComJourney(t *testing.T) {
+    tests.RunUITest(t, "example.com Baseline Test", func(t *testing.T, page *ui.Page) {
+        persona := actions.NewPublicPersona(page, "https://example.com", 10*time.Second)
+        result := actions.NewResult("ExampleCom")
 
-        if err := page.Navigate(cfg.UiURL + "/login"); err != nil {
-            t.Fatalf("Failed to navigate: %v", err)
-        }
+        actions.GoToHome(persona, result)
+        actions.VerifyElementVisible(persona, result, "h1", "H1Heading")
+        actions.VerifyPageTitle(persona, result, "Example Domain")
 
-        page.Click("testid:" + cfg.AdminLoginButtonTestID)
-        page.TypeText("testid:" + cfg.AdminLoginUsernameInputTestID, cfg.AdminCredentials.Username)
-        page.TypeText("testid:" + cfg.AdminLoginPasswordInputTestID, cfg.AdminCredentials.Password)
-        page.Click("testid:" + cfg.AdminLoginSubmitButtonTestID)
-
-        // Verify dashboard loaded
-        if err := page.WaitForElement("testid:dashboard-header"); err != nil {
-            t.Errorf("Dashboard did not load after login: %v", err)
+        if result.Failed() {
+            t.Fatalf("Journey failed: %v", result.Error)
         }
     })
 }
@@ -186,7 +180,7 @@ func TestUI_LoginFlow(t *testing.T) {
 |---|---|---|
 | `baseUrl` | `http://localhost:8080` | Your API's base URL |
 | `uiUrl` | `http://localhost:3000` | Your web app's URL |
-| `seleniumUrl` | `http://localhost:9515` | ChromeDriver WebSocket URL |
+| `seleniumUrl` | `http://localhost:9515` | ChromeDriver address |
 | `headless` | `false` | Set `true` for headless Chrome (CI) |
 | `timeout` | `10` | Default timeout in seconds |
 | `adminCredentials` | — | Admin username/password for tests |
@@ -205,15 +199,25 @@ func TestUI_LoginFlow(t *testing.T) {
 
 ---
 
-## Reports
+## Reports & Artifacts
 
-After each test run, reports are generated in `evidence/run-<timestamp>/`:
+After each test run, reports and evidence are automatically generated in `evidence/run-<timestamp>/`:
 
 ```
-evidence/run-2026-01-15_14-30-00/
+evidence/run-2026-09-06_17-48-05/
 ├── reports/
 │   ├── report.html    # Interactive HTML dashboard (open in browser)
 │   └── report.md      # Markdown summary
 ├── requests/          # Per-test request/response JSON logs
-└── screenshots/       # Failure screenshots (UI tests)
+└── screenshots/       # Screenshots and failure captures (UI tests)
+```
+
+---
+
+## Template Validation
+
+Run the validation script to verify that the template builds cleanly and contains zero domain-specific leaks:
+
+```bash
+./scripts/validate-template.sh
 ```

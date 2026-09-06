@@ -28,10 +28,7 @@ then
     pip install --user $PIP_FLAGS openai
 fi
 
-echo "Running graphify extract on taga-api..."
-cd "$PROJECT_ROOT/taga-api"
+echo "Running graphify extract on e2e-template..."
+cd "$PROJECT_ROOT"
 graphify extract . --backend gemini
 
-echo "Running graphify extract on taga-web..."
-cd "$PROJECT_ROOT/taga-web"
-graphify extract . --backend gemini

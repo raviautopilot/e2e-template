@@ -2,10 +2,15 @@ package actions
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"e2e-template/pkg/ui"
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Result — Captures test journey execution details
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Result captures test journey execution details, actions, evidence, and advice.
 type Result struct {
@@ -32,6 +37,10 @@ func NewResult(testName string) *Result {
 func (r *Result) Failed() bool {
 	return r.Status == "failed"
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Personas — Define who is performing the actions
+// ─────────────────────────────────────────────────────────────────────────────
 
 // PublicActionsInterface allows different personas to share public actions.
 type PublicActionsInterface interface {
@@ -70,187 +79,9 @@ func ensurePage(p *PublicPersona) error {
 	return nil
 }
 
-// GoToHome navigates to the Home page and records the outcome.
-func GoToHome(pai PublicActionsInterface, r *Result) {
-	actionName := "Navigate to Home Page"
-	r.Actions = append(r.Actions, actionName)
-	if r.Failed() {
-		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
-		return
-	}
-
-	p := pai.GetPublicPersona()
-	if err := ensurePage(p); err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Prerequisite Check: Ensure the Selenium driver is started and passed correctly to the persona")
-		return
-	}
-
-	err := p.Page.GoToHome(p.BaseURL)
-	if err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, fmt.Sprintf("Advice: Check if the application server is running at %s. Ensure the URL is reachable.", p.BaseURL))
-		time.Sleep(1 * time.Second)
-		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step01_GoToHome_Failure"); scrErr == nil {
-			r.Evidence = append(r.Evidence, scr)
-		}
-		return
-	}
-
-	time.Sleep(2 * time.Second)
-	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step01_GoToHome_Success"); scrErr == nil {
-		r.Evidence = append(r.Evidence, scr)
-	}
-	r.Advice = append(r.Advice, "Home page loaded successfully.")
-}
-
-// GoToOfficeBeaers navigates to the Office Bearers page and records the outcome.
-func GoToOfficeBeaers(pai PublicActionsInterface, r *Result) {
-	actionName := "Navigate to Office Bearers Page"
-	r.Actions = append(r.Actions, actionName)
-	if r.Failed() {
-		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
-		return
-	}
-
-	p := pai.GetPublicPersona()
-	if err := ensurePage(p); err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Prerequisite Check: Ensure the Selenium driver is started and passed correctly to the persona")
-		return
-	}
-
-	err := p.Page.ClickByTestID("testid-office-bearers-button", p.DefaultTimeout)
-	if err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Advice: Verify that the 'testid-office-bearers-button' element exists on the page and is clickable.")
-		time.Sleep(1 * time.Second)
-		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step02_OfficeBearers_Failure"); scrErr == nil {
-			r.Evidence = append(r.Evidence, scr)
-		}
-		return
-	}
-
-	time.Sleep(2 * time.Second)
-	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step02_OfficeBearers_Success"); scrErr == nil {
-		r.Evidence = append(r.Evidence, scr)
-	}
-	r.Advice = append(r.Advice, "Office Bearers page loaded successfully.")
-}
-
-// GoToEvents navigates to the Events page and records the outcome.
-func GoToEvents(pai PublicActionsInterface, r *Result) {
-	actionName := "Navigate to Events Page"
-	r.Actions = append(r.Actions, actionName)
-	if r.Failed() {
-		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
-		return
-	}
-
-	p := pai.GetPublicPersona()
-	if err := ensurePage(p); err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Prerequisite Check: Ensure the Selenium driver is started and passed correctly to the persona")
-		return
-	}
-
-	err := p.Page.ClickByTestID("testid-events-button", p.DefaultTimeout)
-	if err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Advice: Verify that the 'testid-events-button' element exists on the page and is clickable.")
-		time.Sleep(1 * time.Second)
-		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step04_Events_Failure"); scrErr == nil {
-			r.Evidence = append(r.Evidence, scr)
-		}
-		return
-	}
-
-	time.Sleep(2 * time.Second)
-	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step04_Events_Success"); scrErr == nil {
-		r.Evidence = append(r.Evidence, scr)
-	}
-	r.Advice = append(r.Advice, "Events page loaded successfully.")
-}
-
-// GoToMemberLogin navigates to the Member Login page and records the outcome.
-func GoToMemberLogin(pai PublicActionsInterface, r *Result) {
-	actionName := "Navigate to Member Login Page"
-	r.Actions = append(r.Actions, actionName)
-	if r.Failed() {
-		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
-		return
-	}
-
-	p := pai.GetPublicPersona()
-	if err := ensurePage(p); err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Prerequisite Check: Ensure the Selenium driver is started and passed correctly to the persona")
-		return
-	}
-
-	err := p.Page.ClickByTestID("testid-member-login-button", p.DefaultTimeout)
-	if err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Advice: Verify that the 'testid-member-login-button' element exists on the page and is clickable.")
-		time.Sleep(1 * time.Second)
-		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step06_MemberLogin_Failure"); scrErr == nil {
-			r.Evidence = append(r.Evidence, scr)
-		}
-		return
-	}
-
-	time.Sleep(2 * time.Second)
-	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step06_MemberLogin_Success"); scrErr == nil {
-		r.Evidence = append(r.Evidence, scr)
-	}
-	r.Advice = append(r.Advice, "Member Login page loaded successfully.")
-}
-
-// GoToAdminLogin navigates to the Admin Login page and records the outcome.
-func GoToAdminLogin(pai PublicActionsInterface, r *Result) {
-	actionName := "Navigate to Admin Login Page"
-	r.Actions = append(r.Actions, actionName)
-	if r.Failed() {
-		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
-		return
-	}
-
-	p := pai.GetPublicPersona()
-	if err := ensurePage(p); err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Prerequisite Check: Ensure the Selenium driver is started and passed correctly to the persona")
-		return
-	}
-
-	err := p.Page.ClickByTestID("testid-admin-login-button", p.DefaultTimeout)
-	if err != nil {
-		r.Status = "failed"
-		r.Error = err
-		r.Advice = append(r.Advice, "Advice: Verify that the 'testid-admin-login-button' element exists in the footer and is clickable.")
-		time.Sleep(1 * time.Second)
-		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step08_AdminLogin_Failure"); scrErr == nil {
-			r.Evidence = append(r.Evidence, scr)
-		}
-		return
-	}
-
-	time.Sleep(2 * time.Second)
-	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Step08_AdminLogin_Success"); scrErr == nil {
-		r.Evidence = append(r.Evidence, scr)
-	}
-	r.Advice = append(r.Advice, "Admin Login page loaded successfully.")
-}
-
-// ==================== PERSONA WRAPPERS ====================
+// ─────────────────────────────────────────────────────────────────────────────
+// Persona Wrappers — Inherit public capabilities for specialized roles
+// ─────────────────────────────────────────────────────────────────────────────
 
 // MemberPersona embeds PublicPersona to inherit all public capabilities.
 type MemberPersona struct {
@@ -286,4 +117,338 @@ func NewAdminPersona(page *ui.Page, baseURL string, defaultTimeout time.Duration
 	return &AdminPersona{
 		PublicPersona: NewPublicPersona(page, baseURL, defaultTimeout),
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic Public Actions — Reusable across any project
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GoToHome navigates to the persona's BaseURL and records the outcome.
+func GoToHome(pai PublicActionsInterface, r *Result) {
+	actionName := "Navigate to Home Page"
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		r.Advice = append(r.Advice, "Prerequisite Check: Ensure the Selenium driver is started and passed correctly to the persona")
+		return
+	}
+
+	if err := p.Page.GoToHome(p.BaseURL); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		r.Advice = append(r.Advice, fmt.Sprintf("Advice: Check if the application is reachable at %s.", p.BaseURL))
+		time.Sleep(1 * time.Second)
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_GoToHome_Failure"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+
+	time.Sleep(2 * time.Second)
+	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_GoToHome_Success"); scrErr == nil {
+		r.Evidence = append(r.Evidence, scr)
+	}
+	r.Advice = append(r.Advice, "Home page loaded successfully.")
+}
+
+// GoToPage clicks a navigation element by testID and records the outcome.
+// This is a generic template action — use it for any navigation link/button.
+func GoToPage(pai PublicActionsInterface, r *Result, testID string, pageName string) {
+	actionName := fmt.Sprintf("Navigate to %s", pageName)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	if err := p.Page.ClickByTestID(testID, p.DefaultTimeout); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		r.Advice = append(r.Advice, fmt.Sprintf("Verify that '%s' element exists on the page and is clickable.", testID))
+		time.Sleep(1 * time.Second)
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + pageName + "_Failure"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+
+	time.Sleep(2 * time.Second)
+	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + pageName + "_Success"); scrErr == nil {
+		r.Evidence = append(r.Evidence, scr)
+	}
+	r.Advice = append(r.Advice, fmt.Sprintf("%s loaded successfully.", pageName))
+}
+
+// VerifyPageTitle checks that the browser's page title contains the expected string.
+func VerifyPageTitle(pai PublicActionsInterface, r *Result, expectedTitle string) {
+	actionName := fmt.Sprintf("Verify Page Title Contains '%s'", expectedTitle)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	title, err := p.Page.Driver.Title()
+	if err != nil {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("could not read page title: %w", err)
+		return
+	}
+
+	if !strings.Contains(title, expectedTitle) {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("expected title to contain %q, got %q", expectedTitle, title)
+		r.Advice = append(r.Advice, fmt.Sprintf("Page title was %q but expected it to contain %q.", title, expectedTitle))
+		return
+	}
+
+	r.Advice = append(r.Advice, fmt.Sprintf("Page title verified: %q", title))
+}
+
+// VerifyElementVisible waits for an element to be visible and records the outcome.
+func VerifyElementVisible(pai PublicActionsInterface, r *Result, locator string, elementName string) {
+	actionName := fmt.Sprintf("Verify '%s' is Visible", elementName)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	if _, err := p.Page.WaitUntilVisible(locator, p.DefaultTimeout); err != nil {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("%s not found: %w", elementName, err)
+		r.Advice = append(r.Advice, fmt.Sprintf("Element '%s' (locator: %s) was not visible within timeout.", elementName, locator))
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + elementName + "_NotVisible"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+
+	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + elementName + "_Visible"); scrErr == nil {
+		r.Evidence = append(r.Evidence, scr)
+	}
+	r.Advice = append(r.Advice, fmt.Sprintf("%s is visible.", elementName))
+}
+
+// GetElementText reads the text of an element and records the outcome.
+func GetElementText(pai PublicActionsInterface, r *Result, locator string, elementName string) string {
+	actionName := fmt.Sprintf("Read Text of '%s'", elementName)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		return ""
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return ""
+	}
+
+	text, err := p.Page.GetText(locator, p.DefaultTimeout)
+	if err != nil {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("could not read text of %s: %w", elementName, err)
+		return ""
+	}
+
+	r.Advice = append(r.Advice, fmt.Sprintf("%s text: %q", elementName, text))
+	return text
+}
+
+// TypeIntoElement types text into an element identified by CSS locator.
+func TypeIntoElement(pai PublicActionsInterface, r *Result, locator string, text string, elementName string) {
+	actionName := fmt.Sprintf("Type into '%s'", elementName)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	if err := p.Page.SendKeys(locator, text, p.DefaultTimeout); err != nil {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("could not type into %s: %w", elementName, err)
+		r.Advice = append(r.Advice, fmt.Sprintf("Verify '%s' is an input/textarea and is interactable.", elementName))
+		return
+	}
+
+	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + elementName + "_Typed"); scrErr == nil {
+		r.Evidence = append(r.Evidence, scr)
+	}
+}
+
+// ClickElement clicks an element by CSS locator and records the outcome.
+func ClickElement(pai PublicActionsInterface, r *Result, locator string, elementName string) {
+	actionName := fmt.Sprintf("Click '%s'", elementName)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		r.Advice = append(r.Advice, fmt.Sprintf("Skipped '%s' because a previous step failed", actionName))
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	if err := p.Page.Click(locator, p.DefaultTimeout); err != nil {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("could not click %s: %w", elementName, err)
+		r.Advice = append(r.Advice, fmt.Sprintf("Verify '%s' (locator: %s) exists and is clickable.", elementName, locator))
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + elementName + "_ClickFail"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+
+	time.Sleep(1 * time.Second)
+	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_" + elementName + "_Clicked"); scrErr == nil {
+		r.Evidence = append(r.Evidence, scr)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google-Specific Demo Actions — Used by public_ui_test.go
+// These show how to write real-world actions for a third-party site.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// VerifyGoogleSearchBox waits for Google's search box (textarea or input) to appear.
+func VerifyGoogleSearchBox(pai PublicActionsInterface, r *Result) {
+	actionName := "Verify Google Search Box Visible"
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	// Google uses <textarea name="q"> on modern Chrome but <input name="q"> on older layouts
+	if _, err := p.Page.WaitUntilVisible("css:textarea[name='q']", p.DefaultTimeout); err == nil {
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_SearchBox_Visible"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+	if _, err := p.Page.WaitUntilVisible("css:input[name='q']", 2*time.Second); err == nil {
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_SearchBox_Visible"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+
+	r.Status = "failed"
+	r.Error = fmt.Errorf("google search box not found (tried textarea[name='q'] and input[name='q'])")
+	r.Advice = append(r.Advice, "Google may have changed their search box markup. Check the page source.")
+}
+
+// TypeInGoogleSearchBox types text into Google's search box (tries textarea first, then input).
+func TypeInGoogleSearchBox(pai PublicActionsInterface, r *Result, query string) {
+	actionName := fmt.Sprintf("Type '%s' into Google Search Box", query)
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	if err := p.Page.SendKeys("css:textarea[name='q']", query, p.DefaultTimeout); err == nil {
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Query_Typed"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+	if err := p.Page.SendKeys("css:input[name='q']", query, 3*time.Second); err == nil {
+		if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_Query_Typed"); scrErr == nil {
+			r.Evidence = append(r.Evidence, scr)
+		}
+		return
+	}
+
+	r.Status = "failed"
+	r.Error = fmt.Errorf("could not type into Google search box")
+}
+
+// SubmitGoogleSearch submits the search by pressing Enter.
+func SubmitGoogleSearch(pai PublicActionsInterface, r *Result) {
+	actionName := "Submit Google Search"
+	r.Actions = append(r.Actions, actionName)
+	if r.Failed() {
+		return
+	}
+
+	p := pai.GetPublicPersona()
+	if err := ensurePage(p); err != nil {
+		r.Status = "failed"
+		r.Error = err
+		return
+	}
+
+	// Submit by pressing Enter into the search box
+	if err := p.Page.SendKeys("css:textarea[name='q']", "\n", 3*time.Second); err != nil {
+		if err2 := p.Page.SendKeys("css:input[name='q']", "\n", 3*time.Second); err2 != nil {
+			r.Status = "failed"
+			r.Error = fmt.Errorf("could not submit Google search: %w", err2)
+			return
+		}
+	}
+
+	// Wait for results page to load
+	if _, err := p.Page.WaitUntilVisible("css:body", 10*time.Second); err != nil {
+		r.Status = "failed"
+		r.Error = fmt.Errorf("search results page did not load: %w", err)
+		return
+	}
+
+	time.Sleep(2 * time.Second)
+	if scr, scrErr := p.Page.CaptureScreenshot(r.TestName + "_SearchResults"); scrErr == nil {
+		r.Evidence = append(r.Evidence, scr)
+	}
+	r.Advice = append(r.Advice, "Google search submitted and results page loaded.")
 }
