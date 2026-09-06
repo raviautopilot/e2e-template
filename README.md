@@ -33,8 +33,15 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 │   │   ├── auth.go            # Authentication interface and sub-types
 │   │   └── client.go          # Custom HTTP client wrapper and JSON logger
 │   ├── api/
-│   │   └── actions/
-│   │       └── api_actions.go # Reusable API test action helpers
+│   │   └── actions/           # Verb-specific API test action helpers
+│   │       ├── get.go         # GET actions (GetAndExpectOK, AuthenticatedGet, etc.)
+│   │       ├── post.go        # POST actions (PostAndExpectOK, PostAndExpectCreated, etc.)
+│   │       ├── put.go         # PUT actions (PutAndExpectOK, PutAndExpectStatus, etc.)
+│   │       ├── patch.go       # PATCH actions (PatchAndExpectOK, AuthenticatedPatch, etc.)
+│   │       ├── delete.go      # DELETE actions (DeleteAndExpectOK, DeleteAndExpectNoContent, etc.)
+│   │       ├── options.go     # OPTIONS actions (OptionsAndExpectOK, etc.)
+│   │       ├── head.go        # HEAD actions (HeadAndExpectOK, etc.)
+│   │       └── assertions.go  # Assertion helpers (AssertEquals, AssertListLength, etc.)
 │   ├── ui/
 │   │   ├── driver.go          # Selenium WebDriver connection & option manager
 │   │   ├── pom.go             # Page Object Model helper wrappers
