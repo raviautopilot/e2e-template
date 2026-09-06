@@ -8,27 +8,71 @@ echo "========================================="
 echo " Starting E2E API Test Suite             "
 echo "========================================="
 
-# 1. Parse target/test name from CLI arguments for meaningful evidence directory naming
-TARGET_TAG=""
+# 1. Parse arguments, resolve shorthand package names, and set up target name for evidence directory
+GO_TEST_ARGS=()
+PKG_TAG=""
+RUN_TAG=""
+HAS_PKG=false
 prev=""
+
 for arg in "$@"; do
     if [ "$prev" = "-run" ]; then
-        TARGET_TAG="$arg"
-        break
+        RUN_TAG="$arg"
+        GO_TEST_ARGS+=("$arg")
+        prev="$arg"
+        continue
     elif [[ "$arg" == -run=* ]]; then
-        TARGET_TAG="${arg#-run=}"
-        break
-    elif [[ "$arg" == ./tests/* ]] || [[ "$arg" == tests/* ]]; then
+        RUN_TAG="${arg#-run=}"
+        GO_TEST_ARGS+=("$arg")
+        prev="$arg"
+        continue
+    fi
+
+    # Check if arg is a shorthand package name (e.g. "twincore" -> tests/api/twincore)
+    if [ -d "tests/api/$arg" ]; then
+        HAS_PKG=true
+        [ -z "$PKG_TAG" ] && PKG_TAG="$arg"
+        GO_TEST_ARGS+=("./tests/api/$arg/...")
+    # Check if arg is an explicit package path
+    elif [[ "$arg" == tests/api/* ]] || [[ "$arg" == ./tests/api/* ]]; then
+        HAS_PKG=true
         pkg="${arg#./tests/api/}"
         pkg="${pkg#tests/api/}"
         pkg="${pkg%/...}"
         pkg="${pkg%/*}"
-        TARGET_TAG="$pkg"
+        [ -z "$PKG_TAG" ] && PKG_TAG="$pkg"
+        if [[ "$arg" != ./* ]]; then
+            GO_TEST_ARGS+=("./$arg")
+        else
+            GO_TEST_ARGS+=("$arg")
+        fi
+    elif [[ "$arg" == tests/* ]] || [[ "$arg" == ./tests/* ]]; then
+        HAS_PKG=true
+        pkg="${arg#./tests/}"
+        pkg="${pkg#tests/}"
+        pkg="${pkg%/...}"
+        pkg="${pkg%/*}"
+        [ -z "$PKG_TAG" ] && PKG_TAG="$pkg"
+        if [[ "$arg" != ./* ]]; then
+            GO_TEST_ARGS+=("./$arg")
+        else
+            GO_TEST_ARGS+=("$arg")
+        fi
+    else
+        GO_TEST_ARGS+=("$arg")
     fi
     prev="$arg"
 done
 
-if [ -z "$TARGET_TAG" ]; then
+# Determine TARGET_TAG
+TARGET_TAG=""
+if [ -n "$PKG_TAG" ] && [ -n "$RUN_TAG" ]; then
+    TARGET_TAG="${PKG_TAG}-${RUN_TAG}"
+elif [ -n "$PKG_TAG" ]; then
+    TARGET_TAG="$PKG_TAG"
+elif [ -n "$RUN_TAG" ]; then
+    TARGET_TAG="$RUN_TAG"
+else
     TARGET_TAG="all"
 fi
 
@@ -46,18 +90,10 @@ echo "Evidence Dir     : evidence/run-$E2E_RUN_TIMESTAMP"
 
 # 2. Run API test suite
 echo "Running API test suite..."
-HAS_PKG=false
-for arg in "$@"; do
-    if [[ "$arg" == ./tests/* ]] || [[ "$arg" == tests/* ]]; then
-        HAS_PKG=true
-        break
-    fi
-done
-
 if [ "$HAS_PKG" = true ]; then
-    go test -v "$@"
+    go test -v "${GO_TEST_ARGS[@]}"
 else
-    go test -v ./tests/api/... "$@"
+    go test -v ./tests/api/... "${GO_TEST_ARGS[@]}"
 fi
 TEST_EXIT_CODE=$?
 
