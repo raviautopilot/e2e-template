@@ -281,24 +281,25 @@ func (r *Reporter) GenerateReports(outputDir string) error {
 				}
 			}
 
-			// Also scan date subdirectories in requests/ (e.g. requests/YYYY-MM-DD/<TestName>-...)
-			if dateEntries, err := os.ReadDir(requestsBaseDir); err == nil {
-				for _, dateEntry := range dateEntries {
-					if dateEntry.IsDir() {
-						dateDir := filepath.Join(requestsBaseDir, dateEntry.Name())
-						if files, fErr := os.ReadDir(dateDir); fErr == nil {
+			// Also scan subdirectories in requests/ (e.g. requests/<TestName>/... or legacy requests/YYYY-MM-DD/...)
+			if subEntries, err := os.ReadDir(requestsBaseDir); err == nil {
+				for _, subEntry := range subEntries {
+					if subEntry.IsDir() {
+						subDirPath := filepath.Join(requestsBaseDir, subEntry.Name())
+						if files, fErr := os.ReadDir(subDirPath); fErr == nil {
 							for _, f := range files {
 								if !f.IsDir() {
 									cleanCat := strings.TrimSuffix(res.Category, "_test.go")
 									normCat := strings.ToLower(strings.ReplaceAll(cleanCat, "_", ""))
 									normFile := strings.ToLower(strings.ReplaceAll(f.Name(), "_", ""))
+									normDir := strings.ToLower(strings.ReplaceAll(subEntry.Name(), "_", ""))
 									normName := strings.ToLower(strings.ReplaceAll(res.Name, "_", ""))
 									normName = strings.ReplaceAll(normName, " ", "")
 
 									if strings.Contains(f.Name(), sanitizedName) ||
-										(normName != "" && strings.Contains(normFile, normName)) ||
-										(normCat != "" && strings.Contains(normFile, normCat)) {
-										res.RequestLogs = append(res.RequestLogs, "../requests/"+dateEntry.Name()+"/"+f.Name())
+										(normName != "" && (strings.Contains(normFile, normName) || strings.Contains(normDir, normName))) ||
+										(normCat != "" && (strings.Contains(normFile, normCat) || strings.Contains(normDir, normCat))) {
+										res.RequestLogs = append(res.RequestLogs, "../requests/"+subEntry.Name()+"/"+f.Name())
 									}
 								}
 							}

@@ -151,7 +151,7 @@ Every test execution automatically collects evidence in meaningful, test-scoped 
   - When running all tests, `<target>` defaults to `all` (e.g., `evidence/run-api-all-2026-09-06_18-45-00/`).
 
 ### Evidence Artifacts:
-- **API Request/Response logs**: `evidence/run-api-<target>-<timestamp>/requests/` (organized by test and timestamp)
+- **API Request/Response logs**: `evidence/run-api-<target>-<timestamp>/requests/<TestName>/` (organized in a dedicated folder per test, timestamped)
 - **Interactive HTML Report**: `evidence/run-api-<target>-<timestamp>/reports/report.html` (includes suite metadata, scope, and test-linked request logs)
 - **Markdown Report**: `evidence/run-api-<target>-<timestamp>/test-report.md` (summary table with test evidence counts)
 

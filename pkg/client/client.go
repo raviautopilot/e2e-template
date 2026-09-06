@@ -232,18 +232,11 @@ func detectCallerTestName() string {
 // logExchange logs the request/response details to disk.
 func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []byte, resp *http.Response, respBody []byte, err error) {
 	now := time.Now()
-	dateDir := now.Format("2006-01-02")
 	timePrefix := now.Format("15-04-05")
 
 	// Append suffix to avoid file collision during parallel runs
 	rand.Seed(time.Now().UnixNano())
 	suffix := fmt.Sprintf("%06d", rand.Intn(1000000))
-	baseDir := filepath.Join(c.LogDir, dateDir)
-
-	if err := os.MkdirAll(baseDir, 0777); err != nil {
-		logger.Error("Failed to create log directory: %s", err)
-		return
-	}
 
 	testTag := c.TestName
 	if testTag == "" {
@@ -254,14 +247,21 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 		testTag = strings.ReplaceAll(testTag, " ", "_")
 	}
 
-	var reqFileName, respFileName string
+	// Organize requests into a separate directory per test (no redundant date directory)
+	targetDir := c.LogDir
 	if testTag != "" {
-		reqFileName = fmt.Sprintf("%s-%s-%s-request.json", testTag, timePrefix, suffix)
-		respFileName = fmt.Sprintf("%s-%s-%s-response.json", testTag, timePrefix, suffix)
+		targetDir = filepath.Join(c.LogDir, testTag)
 	} else {
-		reqFileName = fmt.Sprintf("%s-%s-request.json", timePrefix, suffix)
-		respFileName = fmt.Sprintf("%s-%s-response.json", timePrefix, suffix)
+		targetDir = filepath.Join(c.LogDir, "general")
 	}
+
+	if err := os.MkdirAll(targetDir, 0777); err != nil {
+		logger.Error("Failed to create log directory: %s", err)
+		return
+	}
+
+	reqFileName := fmt.Sprintf("%s-%s-request.json", timePrefix, suffix)
+	respFileName := fmt.Sprintf("%s-%s-response.json", timePrefix, suffix)
 
 	// Prepare Request JSON Log
 	reqHeadersMap := make(map[string][]string)
@@ -283,7 +283,7 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 		"body":      reqBodyJSON,
 	}
 
-	reqFilePath := filepath.Join(baseDir, reqFileName)
+	reqFilePath := filepath.Join(targetDir, reqFileName)
 	reqFile, fileErr := os.Create(reqFilePath)
 	if fileErr == nil {
 		encoder := json.NewEncoder(reqFile)
@@ -325,7 +325,7 @@ func (c *Client) logExchange(startTime time.Time, req *http.Request, reqBody []b
 		}
 	}
 
-	respFilePath := filepath.Join(baseDir, respFileName)
+	respFilePath := filepath.Join(targetDir, respFileName)
 	respFile, fileErr := os.Create(respFilePath)
 	if fileErr == nil {
 		encoder := json.NewEncoder(respFile)
