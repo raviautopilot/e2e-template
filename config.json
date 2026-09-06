@@ -1,0 +1,29 @@
+{
+  "_comment": "E2E Template Configuration — copy this file and fill in your project values.",
+  "_docs": "See README.md for full documentation on each field.",
+
+  "_section_core": "── CORE SETTINGS ──────────────────────────────────────────",
+  "baseUrl": "http://localhost:8080",
+  "uiUrl": "http://localhost:3000",
+  "seleniumUrl": "http://localhost:9515",
+  "headless": false,
+  "timeout": 10,
+
+  "_section_credentials": "── AUTH CREDENTIALS ────────────────────────────────────────",
+  "_credentials_note": "Never commit real credentials. Use environment variables or a secrets manager.",
+  "adminCredentials": {
+    "username": "admin@example.com",
+    "password": "REPLACE_ME"
+  },
+  "memberCredentials": {
+    "username": "member@example.com",
+    "password": "REPLACE_ME"
+  },
+
+  "_section_testids": "── TEST ID PLACEHOLDERS (data-testid attributes) ───────────",
+  "_testid_note": "Placeholders for common UI element types (buttons, inputs). Add only what your tests need.",
+  "loginButtonTestID": "testid-login-button",
+  "submitButtonTestID": "testid-submit-button",
+  "usernameInputTestID": "testid-username-input",
+  "passwordInputTestID": "testid-password-input"
+}

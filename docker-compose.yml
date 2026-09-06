@@ -1,0 +1,13 @@
+services:
+  # ==========================================
+  # Selenium Standalone Chrome (Optional)
+  # Provides remote WebDriver for UI testing
+  # ==========================================
+  selenium-chrome:
+    image: selenium/standalone-chrome:latest
+    container_name: e2e-selenium-chrome
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+    shm_size: 2gb
+    restart: unless-stopped
