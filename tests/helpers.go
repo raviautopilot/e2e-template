@@ -284,6 +284,9 @@ type TestContext struct {
 
 // RunAPITestWithDetails executes an API test with rich description, expected, actual, and failure tracking.
 func RunAPITestWithDetails(t *testing.T, name string, description string, expected string, fn func(tc *TestContext)) {
+	if GlobalConfig == nil {
+		SetupSuite()
+	}
 	rep := report.GetGlobalReporter()
 	startTime := time.Now()
 
@@ -334,6 +337,9 @@ func RunAPITestWithDetails(t *testing.T, name string, description string, expect
 
 // RunAPITest is a wrapper executing an API test case, injecting a custom Client and logging results.
 func RunAPITest(t *testing.T, name string, fn func(t *testing.T, c *client.Client)) {
+	if GlobalConfig == nil {
+		SetupSuite()
+	}
 	rep := report.GetGlobalReporter()
 	startTime := time.Now()
 

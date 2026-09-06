@@ -1,4 +1,4 @@
-package api_test
+package httpbin_test
 
 import (
 	"os"
@@ -9,10 +9,7 @@ import (
 
 func TestMain(m *testing.M) {
 	tests.SetupSuite()
-
 	exitCode := m.Run()
-
 	tests.TeardownSuite()
-
 	os.Exit(exitCode)
 }

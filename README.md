@@ -54,10 +54,28 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 │   ├── main_test.go           # Suite bootstrap (TestMain)
 │   ├── helpers.go             # RunAPITest, RunUITest, seedTestData, etc.
 │   ├── api/
-│   │   ├── main_test.go       # API package bootstrap
-│   │   ├── types_test.go      # Response type definitions
-│   │   ├── public_api_test.go # Working tests targeting public APIs (httpbin, GitHub, JSONPlaceholder)
-│   │   └── example_api_test.go# Example skeleton tests for custom backend
+│   │   ├── httpbin/           # httpbin.org API test package (1 test per file)
+│   │   │   ├── main_test.go
+│   │   │   ├── 01_get_echo_test.go
+│   │   │   ├── 02_status_codes_test.go
+│   │   │   ├── 03_post_json_test.go
+│   │   │   ├── 04_delay_test.go
+│   │   │   └── 05_auth_test.go
+│   │   ├── github/            # GitHub API test package (1 test per file)
+│   │   │   ├── main_test.go
+│   │   │   ├── 01_user_test.go
+│   │   │   ├── 02_repo_test.go
+│   │   │   └── 03_rate_limit_test.go
+│   │   ├── jsonplaceholder/   # JSONPlaceholder API test package (1 test per file)
+│   │   │   ├── main_test.go
+│   │   │   ├── 01_posts_test.go
+│   │   │   ├── 02_create_post_test.go
+│   │   │   └── 03_users_test.go
+│   │   └── example/           # Example API test package (1 test per file)
+│   │       ├── main_test.go
+│   │       ├── types_test.go
+│   │       ├── 01_health_check_test.go
+│   │       └── 02_public_endpoints_test.go
 │   └── ui/
 │       ├── google/            # Google UI test package (1 test per file)
 │       │   ├── main_test.go

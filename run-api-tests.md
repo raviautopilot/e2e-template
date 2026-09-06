@@ -39,11 +39,16 @@ The API test suite reads its configuration from `config.json`. You can modify th
 # Run all API tests
 ./run-api-tests.sh
 
-# Run only public API tests
-./run-api-tests.sh -run TestAPI_Public
+# Run all API tests in a specific package
+./run-api-tests.sh ./tests/api/httpbin/...
+./run-api-tests.sh ./tests/api/github/...
+./run-api-tests.sh ./tests/api/jsonplaceholder/...
+./run-api-tests.sh ./tests/api/example/...
 
 # Run a specific test
-./run-api-tests.sh -run TestAPI_Public_01_HttpBin
+./run-api-tests.sh -run TestAPI_HttpBin_01_GetEcho
+./run-api-tests.sh -run TestAPI_GitHub_01_User
+./run-api-tests.sh -run TestAPI_JSONPlaceholder_01_Posts
 ```
 
 ### Option B: Using Standard `go test`
@@ -51,35 +56,49 @@ The API test suite reads its configuration from `config.json`. You can modify th
 # Run all API tests with verbose output
 go test -v ./tests/api/...
 
-# Run only public tests
-go test -v ./tests/api/... -run TestAPI_Public -count=1
-```
-
-### Option C: Using Precompiled Binary (`api.test`)
-```bash
-./api.test -test.v -test.run TestAPI_Public
+# Run a specific package
+go test -v ./tests/api/httpbin/...
+go test -v ./tests/api/github/...
+go test -v ./tests/api/jsonplaceholder/...
+go test -v ./tests/api/example/...
 ```
 
 ---
 
 ## 4. Test Catalog
 
-### 🌐 Public API Tests (`tests/api/public_api_test.go`)
-Real, working tests that execute against public internet APIs without requiring a local backend:
+Each test suite resides in its own package under `tests/api/`, with **one test per file**:
 
-| Test Name | Target API | Endpoints Tested |
+### 🌐 httpbin Package (`tests/api/httpbin/`)
+| File | Test Function | What It Tests |
 |---|---|---|
-| `TestAPI_Public_01_HttpBin` | [httpbin.org](https://httpbin.org) | GET echo, query params, status codes (200/404/500), POST JSON, delay/timeout, Bearer auth, Basic auth |
-| `TestAPI_Public_02_GitHub` | [api.github.com](https://api.github.com) | GET user, 404 nonexistent user, GET repo, 404 nonexistent repo, rate limit status |
-| `TestAPI_Public_03_JSONPlaceholder` | [jsonplaceholder.typicode.com](https://jsonplaceholder.typicode.com) | GET post list (100 posts), GET single post, 404 nonexistent post, POST create (201 Created), GET users |
+| `01_get_echo_test.go` | `TestAPI_HttpBin_01_GetEcho` | GET request echo and query parameter handling |
+| `02_status_codes_test.go` | `TestAPI_HttpBin_02_StatusCodes` | Standard status codes (200 OK, 404 Not Found, 500 Error) |
+| `03_post_json_test.go` | `TestAPI_HttpBin_03_PostJSON` | POST request with JSON payload echoed in response |
+| `04_delay_test.go` | `TestAPI_HttpBin_04_Delay` | Delayed response handling without premature timeout |
+| `05_auth_test.go` | `TestAPI_HttpBin_05_Auth` | Bearer Token and HTTP Basic authentication |
 
-### 🛠️ Example Skeleton Tests (`tests/api/example_api_test.go`)
+### 🌐 GitHub Package (`tests/api/github/`)
+| File | Test Function | What It Tests |
+|---|---|---|
+| `01_user_test.go` | `TestAPI_GitHub_01_User` | User profile retrieval and 404 on nonexistent user |
+| `02_repo_test.go` | `TestAPI_GitHub_02_Repo` | Public repo metadata retrieval and 404 on nonexistent repo |
+| `03_rate_limit_test.go` | `TestAPI_GitHub_03_RateLimit` | GitHub API rate limit endpoint validation |
+
+### 🌐 JSONPlaceholder Package (`tests/api/jsonplaceholder/`)
+| File | Test Function | What It Tests |
+|---|---|---|
+| `01_posts_test.go` | `TestAPI_JSONPlaceholder_01_Posts` | Post list (100 items), single post, and 404 for missing post |
+| `02_create_post_test.go` | `TestAPI_JSONPlaceholder_02_CreatePost` | Creating a post with JSON payload (201 Created) |
+| `03_users_test.go` | `TestAPI_JSONPlaceholder_03_Users` | Users list retrieval and user field validation |
+
+### 🛠️ Example Package (`tests/api/example/`)
 Template tests for your custom application backend (configured via `baseUrl` in `config.json`):
 
-| Test Name | Purpose |
-|---|---|
-| `TestAPI_01_HealthCheck` | Verifies health / ping endpoint of target backend |
-| `TestAPI_02_PublicEndpoints` | Verifies public / unauthenticated endpoints |
+| File | Test Function | Purpose |
+|---|---|---|
+| `01_health_check_test.go` | `TestAPI_Example_01_HealthCheck` | Verifies health / ping endpoint of target backend |
+| `02_public_endpoints_test.go` | `TestAPI_Example_02_PublicEndpoints` | Verifies public / unauthenticated endpoints |
 
 ---
 

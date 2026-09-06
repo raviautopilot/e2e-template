@@ -1,13 +1,4 @@
-package api_test
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TEMPLATE: API Response Types
-//
-// Define the Go structs that map to your API's response payloads here.
-// These types are used in the example test file and across the api_test package.
-//
-// Replace/extend these with your own application's response models.
-// ─────────────────────────────────────────────────────────────────────────────
+package example_test
 
 // HealthResponse represents a generic health-check response payload.
 // Adapt the fields to match your application's /health endpoint.
@@ -30,7 +21,6 @@ type GenericErrorResponse struct {
 }
 
 // ExampleListResponse is a placeholder for paginated list responses.
-// TODO: Replace with your actual list response model.
 type ExampleListResponse struct {
 	Items []map[string]interface{} `json:"items,omitempty"`
 	Total int                      `json:"total,omitempty"`
