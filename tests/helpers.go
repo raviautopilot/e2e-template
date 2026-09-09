@@ -297,6 +297,7 @@ func RunAPITestWithDetails(t *testing.T, name string, description string, expect
 
 	t.Run(name, func(subT *testing.T) {
 		c := client.NewClient(GlobalConfig.BaseURL, time.Duration(GlobalConfig.Timeout)*time.Second, ExecutionLogDir)
+		c.SetTestName(name)
 		tc := &TestContext{
 			T:           subT,
 			Client:      c,
