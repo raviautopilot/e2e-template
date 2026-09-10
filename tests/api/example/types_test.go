@@ -27,18 +27,3 @@ type ExampleListResponse struct {
 	Page  int                      `json:"page,omitempty"`
 	Limit int                      `json:"limit,omitempty"`
 }
-
-// LoginRequest represents the authentication request body payload.
-type LoginRequest struct {
-	Email    string `json:"email,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-// LoginResponse represents the authentication response payload.
-type LoginResponse struct {
-	Token       string                 `json:"token,omitempty"`
-	AccessToken string                 `json:"access_token,omitempty"`
-	Message     string                 `json:"message,omitempty"`
-	User        map[string]interface{} `json:"user,omitempty"`
-	Status      string                 `json:"status,omitempty"`
-}
