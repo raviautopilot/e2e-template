@@ -17,3 +17,6 @@ test-all:
 
 clean:
 	rm -rf evidence/
+
+new-service:
+	@./create-service.sh $(name) $(mode)
