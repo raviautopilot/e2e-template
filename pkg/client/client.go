@@ -53,6 +53,24 @@ func (e *httpErrorImpl) UnderlyingError() error {
 	return e.err
 }
 
+// Unwrap supports errors.Unwrap and errors.Is/As chains.
+func (e *httpErrorImpl) Unwrap() error {
+	return e.err
+}
+
+// AsHttpError attempts to convert any error into an HttpError.
+// It supports wrapped errors via errors.As.
+func AsHttpError(err error) (HttpError, bool) {
+	if err == nil {
+		return nil, false
+	}
+	var httpErr HttpError
+	if errors.As(err, &httpErr) {
+		return httpErr, true
+	}
+	return nil, false
+}
+
 // Client represents the custom HTTP client.
 type Client struct {
 	BaseURL    string
