@@ -15,11 +15,13 @@ type Credentials struct {
 // Config holds the configuration values for the testing framework.
 type Config struct {
 	// Core settings
-	BaseURL     string `json:"baseUrl"`
-	UiURL       string `json:"uiUrl"`
-	SeleniumURL string `json:"seleniumUrl"`
-	Headless    bool   `json:"headless"`
-	Timeout     int    `json:"timeout"`
+	BaseURL          string `json:"baseUrl"`
+	UiURL            string `json:"uiUrl"`
+	SeleniumURL      string `json:"seleniumUrl"`
+	ChromeDriverPath string `json:"chromeDriverPath,omitempty"`
+	ChromedriverPath string `json:"chromedriverPath,omitempty"`
+	Headless         bool   `json:"headless"`
+	Timeout          int    `json:"timeout"`
 
 	// Auth credentials
 	AdminCredentials  Credentials `json:"adminCredentials"`
@@ -89,6 +91,11 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.MemberLoginSubmitButtonTestID = cfg.AdminLoginSubmitButtonTestID
 	}
 
+	// Fallback to alias if chromeDriverPath is unset
+	if cfg.ChromeDriverPath == "" && cfg.ChromedriverPath != "" {
+		cfg.ChromeDriverPath = cfg.ChromedriverPath
+	}
+
 	// Environment overrides
 	if val := os.Getenv("E2E_BASE_URL"); val != "" {
 		cfg.BaseURL = val
@@ -98,6 +105,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if val := os.Getenv("E2E_SELENIUM_URL"); val != "" {
 		cfg.SeleniumURL = val
+	}
+	if val := os.Getenv("E2E_CHROMEDRIVER_PATH"); val != "" {
+		cfg.ChromeDriverPath = val
 	}
 	if val := os.Getenv("E2E_HEADLESS"); val != "" {
 		if boolVal, err := strconv.ParseBool(val); err == nil {

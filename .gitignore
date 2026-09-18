@@ -23,6 +23,8 @@ graphify-out/.rebuild.lock
 rbot.exe
 rbot.bin
 /generate-tests
+lib/chromedriver*
+!lib/.gitkeep
 
 # ============================================
 # OPERATING SYSTEM FILES

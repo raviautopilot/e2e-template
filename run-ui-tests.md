@@ -27,6 +27,7 @@ The test suite reads configuration from `config.json`. You can modify this file 
 |---|---|---|---|
 | `uiUrl` | `E2E_UI_URL` | `http://localhost:3000` | Target URL of your web frontend |
 | `seleniumUrl` | `E2E_SELENIUM_URL` | `http://localhost:9515` | Selenium WebDriver address |
+| `chromeDriverPath` | `E2E_CHROMEDRIVER_PATH` | `chromedriver` | Path to ChromeDriver binary (e.g. `lib/chromedriver`) |
 | `headless` | `E2E_HEADLESS` | `false` | Run browser in headless mode (`true` for CI, `false` to watch browser) |
 | `timeout` | `E2E_TIMEOUT` | `10` | Timeout in seconds for page element waits |
 
