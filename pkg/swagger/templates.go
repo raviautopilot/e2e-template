@@ -63,7 +63,7 @@ func TestAPI_{{sanitize .Group.Tag}}_List(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp []map[string]interface{}
-			actions.GetAndExpectOK(tc, apiClient, "{{.Endpoint.Path}}", &resp)
+			actions.SendHttpRequest(tc, apiClient, "GET", "{{.Endpoint.Path}}", nil, nil, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — received %d items", len(resp))
 		},
 	)
@@ -91,7 +91,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Create(t *testing.T) {
 			body := {{buildExampleBody .ModelName .Definitions}}
 
 			var resp map[string]interface{}
-			actions.PostAndExpectCreated(tc, apiClient, "{{.Endpoint.Path}}", &body, &resp)
+			actions.SendHttpRequest(tc, apiClient, "POST", "{{.Endpoint.Path}}", nil, &body, &resp, nil)
 
 			var createdID float64
 			if id, ok := resp["id"]; ok {
@@ -127,7 +127,7 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 			// 1. Create a temporary resource to fetch
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.PostAndExpectCreated(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
+			actions.SendHttpRequest(tc, apiClient, "POST", "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -140,7 +140,7 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 			// 2. Fetch resource by ID
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			var resp map[string]interface{}
-			actions.GetAndExpectOK(tc, apiClient, path, &resp)
+			actions.SendHttpRequest(tc, apiClient, "GET", path, nil, nil, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — retrieved resource ID %v", createdID)
 		},
 	)
@@ -169,7 +169,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
 			// 1. Create a temporary resource to update
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.PostAndExpectCreated(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
+			actions.SendHttpRequest(tc, apiClient, "POST", "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -183,7 +183,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
 			updateBody := {{buildUpdateBody .ModelName .Definitions}}
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			var resp map[string]interface{}
-			actions.PutAndExpectOK(tc, apiClient, path, &updateBody, &resp)
+			actions.SendHttpRequest(tc, apiClient, "PUT", path, nil, &updateBody, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — updated resource ID %v", createdID)
 		},
 	)
@@ -212,7 +212,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
 			// 1. Create a temporary resource to delete
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.PostAndExpectCreated(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
+			actions.SendHttpRequest(tc, apiClient, "POST", "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -224,12 +224,12 @@ func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
 {{end}}
 			// 2. Delete the resource
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
-			actions.DeleteAndExpectNoContent(tc, apiClient, path)
+			actions.SendHttpRequest(tc, apiClient, "DELETE", path, nil, nil, nil, nil)
 
 {{with .Group.GetByIDEndpoint}}
 			// 3. Verify resource is removed (GET returns 404)
 			verifyPath := fmt.Sprintf("{{pathParamReplace .Path}}", int(createdID))
-			actions.GetAndExpectStatus(tc, apiClient, verifyPath, 404)
+			actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", verifyPath, nil, nil, nil, nil, 404)
 {{end}}
 			tc.Actual = fmt.Sprintf("HTTP 204 No Content — deleted and verified resource ID %v", createdID)
 		},
@@ -301,11 +301,11 @@ func TestAPI_{{sanitize .Group.Tag}}_Parameterized(t *testing.T) {
 			func(tc *tests.TestContext) {
 				switch tcData.method {
 				case "GET":
-					actions.GetAndExpectStatus(tc, apiClient, tcData.path, tcData.expectedStatus)
+					actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", tcData.path, nil, nil, nil, nil, tcData.expectedStatus)
 				case "POST":
-					actions.PostAndExpectStatus(tc, apiClient, tcData.path, tcData.body, tcData.expectedStatus)
+					actions.SendHttpRequestAndExpectStatus(tc, apiClient, "POST", tcData.path, nil, tcData.body, nil, nil, tcData.expectedStatus)
 				case "DELETE":
-					actions.DeleteAndExpectStatus(tc, apiClient, tcData.path, tcData.expectedStatus)
+					actions.SendHttpRequestAndExpectStatus(tc, apiClient, "DELETE", tcData.path, nil, nil, nil, nil, tcData.expectedStatus)
 				default:
 					var dummy map[string]interface{}
 					_ = apiClient.SendHttpRequest(tcData.method, tcData.path, nil, tcData.body, &dummy, nil)
@@ -336,7 +336,7 @@ func TestAPI_{{sanitize .Group.Tag}}_HealthCheck(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp map[string]interface{}
-			actions.GetAndExpectOK(tc, apiClient, "{{.Path}}", &resp)
+			actions.SendHttpRequest(tc, apiClient, "GET", "{{.Path}}", nil, nil, &resp, nil)
 			if status, ok := resp["status"]; ok {
 				actions.AssertNotEmpty(tc, "status", fmt.Sprintf("%v", status))
 			}

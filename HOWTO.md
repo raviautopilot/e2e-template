@@ -141,24 +141,25 @@ func TestAPI_01_AdminLogin(t *testing.T) {
 ```
 
 ### 4.3 Authenticated Requests (Basic, Bearer, HashiCorp Vault, API Keys)
-The framework supports interface-driven authentication via `client.Authenticator`. You can pass authenticators directly into `actions.AuthenticatedGet`, `actions.AuthenticatedPost`, etc., or via `client.SendHttpRequest`.
+All HTTP helpers in `pkg/api/actions` follow the exact same signature as `client.SendHttpRequest`:
+`(tc, c, path, headers, reqBody, respBody, auth)`. Pass `auth` directly when authentication is required, or `nil` for public endpoints.
 
 ```go
 // 1. HTTP Basic Auth
 auth := &client.BasicAuth{Username: "admin", Password: "secret"}
-actions.AuthenticatedGet(tc, apiClient, "/api/v1/profile", auth, &profileResp)
+actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/profile", nil, nil, &profileResp, auth)
 
 // 2. Bearer Token (JWT / OAuth2 / PAT)
 bearer := &client.BearerTokenAuth{Token: loginResp.Token}
-actions.AuthenticatedGet(tc, apiClient, "/api/v1/orders", bearer, &ordersResp)
+actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/orders", nil, nil, &ordersResp, bearer)
 
 // 3. HashiCorp Vault Token (X-Vault-Token & optional X-Vault-Namespace)
 vault := &client.VaultTokenAuth{Token: "s.vaultToken123", Namespace: "engineering"}
-actions.AuthenticatedGet(tc, apiClient, "/v1/secret/data/creds", vault, &vaultResp)
+actions.SendHttpRequest(tc, apiClient, "GET", "/v1/secret/data/creds", nil, nil, &vaultResp, vault)
 
 // 4. API Key (Header or Query Parameter)
 apiKey := &client.APIKeyAuth{Key: "X-API-Key", Value: "secret-key", In: "header"}
-actions.AuthenticatedGet(tc, apiClient, "/api/v1/data", apiKey, &dataResp)
+actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/data", nil, nil, &dataResp, apiKey)
 ```
 
 > 📖 **Full Guide**: For detailed patterns, real-world examples, mTLS, multi-auth chaining, and RBAC boundary testing, refer to the [API Authentication Guide](docs/API_AUTHENTICATION_GUIDE.md).

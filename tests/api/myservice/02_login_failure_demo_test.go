@@ -28,7 +28,7 @@ func TestAPI_02_DeliberateFailure_Demo(t *testing.T) {
 
 			// Submitting incorrect password triggers 401 Unauthorized from backend.
 			// Expecting 200 OK forces this test to fail intentionally.
-			actions.PostAndExpectOK(tc, apiClient, "/api/v1/auth/login", &req, &resp)
+			actions.SendHttpRequest(tc, apiClient, "POST", "/api/v1/auth/login", nil, &req, &resp, nil)
 		},
 	)
 }

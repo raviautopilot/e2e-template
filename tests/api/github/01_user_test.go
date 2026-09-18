@@ -26,11 +26,11 @@ func TestAPI_GitHub_01_User(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var user githubUser
-			actions.GetWithHeadersAndExpectOK(tc, apiClient, "/users/octocat", githubHeaders, &user)
+			actions.SendHttpRequest(tc, apiClient, "GET", "/users/octocat", githubHeaders, nil, &user, nil)
 			actions.AssertEquals(tc, "login", user.Login, "octocat")
 			actions.AssertNotZero(tc, "id", user.ID)
 
-			actions.GetWithHeadersAndExpectStatus(tc, apiClient, "/users/nonexistent-user-xyz-abc-123", githubHeaders, 404)
+			actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", "/users/nonexistent-user-xyz-abc-123", githubHeaders, nil, nil, nil, 404)
 		},
 	)
 }
