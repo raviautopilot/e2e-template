@@ -76,3 +76,48 @@ type ClientCertAuth struct {
 func (a *ClientCertAuth) Apply(req *http.Request) error {
 	return nil
 }
+
+// VaultTokenAuth implements HashiCorp Vault token authentication via X-Vault-Token header.
+type VaultTokenAuth struct {
+	Token     string
+	Namespace string // optional HashiCorp Vault namespace (X-Vault-Namespace)
+}
+
+// Apply injects the X-Vault-Token and optional X-Vault-Namespace headers.
+func (a *VaultTokenAuth) Apply(req *http.Request) error {
+	req.Header.Set("X-Vault-Token", a.Token)
+	if a.Namespace != "" {
+		req.Header.Set("X-Vault-Namespace", a.Namespace)
+	}
+	return nil
+}
+
+// CustomHeaderAuth applies arbitrary headers for authentication.
+type CustomHeaderAuth struct {
+	Headers map[string]string
+}
+
+// Apply injects custom header key-value pairs into the request.
+func (a *CustomHeaderAuth) Apply(req *http.Request) error {
+	for k, v := range a.Headers {
+		req.Header.Set(k, v)
+	}
+	return nil
+}
+
+// MultiAuth combines multiple authenticators into a single execution chain.
+type MultiAuth struct {
+	Authenticators []Authenticator
+}
+
+// Apply executes each authenticator in sequence.
+func (m *MultiAuth) Apply(req *http.Request) error {
+	for _, auth := range m.Authenticators {
+		if auth != nil {
+			if err := auth.Apply(req); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

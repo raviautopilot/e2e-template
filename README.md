@@ -6,7 +6,7 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 
 ## Features
 
-- **Extensible API Client**: Auto-marshaling, struct pointer safety checks, and an interface-driven Authentication manager (Bearer, Basic, API Key, mTLS, and SSH signing).
+- **Extensible API Client**: Auto-marshaling, struct pointer safety checks, and an interface-driven Authentication manager (Basic, Bearer, HashiCorp Vault, API Key, Custom Headers, mTLS, SSH signing, and Multi-Auth chaining). See the [API Authentication Guide](docs/API_AUTHENTICATION_GUIDE.md).
 - **Reusable API Action Helpers**: Pre-built assertions and action helpers in `pkg/api/actions/` (`GetAndExpectOK`, `PostAndExpectCreated`, `AssertNotEmpty`, etc.).
 - **Selenium UI Integration**: Base Page Object wrappers handling dynamic CSS/XPath element selection, waiting hooks, interaction wrappers, and automated screenshots on test failure.
 - **Persona & Action Pattern**: High-level declarative test actions (`pkg/ui/actions/`) representing realistic user journeys (Public, Member, Admin).
@@ -24,6 +24,9 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 ├── Makefile                   # Execution shortcuts
 ├── config.json                # Environment configuration (adapt to your project)
 ├── docker-compose.yml         # Standalone Selenium Chrome container (optional)
+├── docs/                      # Guides and references
+│   ├── API_AUTHENTICATION_GUIDE.md # Comprehensive guide for Basic, Bearer, Vault, API Keys, mTLS
+│   └── MASTER_API_TESTING_PROMPT.md# AI prompt reference for generating tests
 ├── pkg/
 │   ├── config/
 │   │   └── config.go          # Config loader and environment variable overrides
