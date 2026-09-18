@@ -154,6 +154,62 @@ var (
 	chromeDriverMu  sync.Mutex
 )
 
+// resolveChromeDriverPath determines the path to the ChromeDriver binary.
+// It uses GlobalConfig.ChromeDriverPath if specified; otherwise defaults to "chromedriver".
+// If a relative path is provided, it is resolved against the Go module root.
+func resolveChromeDriverPath() string {
+	driverPath := "chromedriver"
+	if GlobalConfig != nil && strings.TrimSpace(GlobalConfig.ChromeDriverPath) != "" {
+		driverPath = strings.TrimSpace(GlobalConfig.ChromeDriverPath)
+	}
+
+	if driverPath == "chromedriver" {
+		return driverPath
+	}
+
+	if filepath.IsAbs(driverPath) {
+		if info, err := os.Stat(driverPath); err == nil {
+			if info.Mode()&0111 == 0 {
+				_ = os.Chmod(driverPath, info.Mode()|0755)
+			}
+		} else {
+			logger.Warn("ChromeDriver binary specified at '%s' was not found.", driverPath)
+		}
+		return driverPath
+	}
+
+	// Resolve relative path against module root (e.g. "lib/chromedriver")
+	if moduleRoot, err := findModuleRoot(); err == nil && moduleRoot != "" {
+		candidate := filepath.Join(moduleRoot, driverPath)
+		if info, err := os.Stat(candidate); err == nil {
+			if info.Mode()&0111 == 0 {
+				_ = os.Chmod(candidate, info.Mode()|0755)
+			}
+			return candidate
+		}
+	}
+
+	// Check relative to current working directory
+	if info, err := os.Stat(driverPath); err == nil {
+		if info.Mode()&0111 == 0 {
+			_ = os.Chmod(driverPath, info.Mode()|0755)
+		}
+		if abs, err := filepath.Abs(driverPath); err == nil {
+			return abs
+		}
+		return driverPath
+	}
+
+	if moduleRoot, err := findModuleRoot(); err == nil && moduleRoot != "" {
+		candidate := filepath.Join(moduleRoot, driverPath)
+		logger.Warn("ChromeDriver binary specified at '%s' was not found at %s.", driverPath, candidate)
+		return candidate
+	}
+
+	logger.Warn("ChromeDriver binary specified at '%s' was not found.", driverPath)
+	return driverPath
+}
+
 func startChromeDriverIfNeeded() {
 	chromeDriverMu.Lock()
 	defer chromeDriverMu.Unlock()
@@ -186,16 +242,19 @@ func startChromeDriverIfNeeded() {
 	if err == nil {
 		conn.Close()
 		// Chromedriver or another service is already running on this port, nothing to do
+		logger.Info("Port %s is already active. Assuming ChromeDriver or WebDriver service is running.", addr)
 		return
 	}
 
+	driverPath := resolveChromeDriverPath()
+
 	// Start chromedriver in the background
-	logger.Info("Auto-starting chromedriver on port %s...", port)
-	cmd := exec.Command("chromedriver", "--port="+port)
+	logger.Info("Auto-starting chromedriver (%s) on port %s...", driverPath, port)
+	cmd := exec.Command(driverPath, "--port="+port)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
-		logger.Warn("Failed to auto-start chromedriver: %v. Tests might fail if webdriver is not running.", err)
+		logger.Warn("Failed to auto-start chromedriver (%s): %v. Tests might fail if webdriver is not running.", driverPath, err)
 		return
 	}
 	chromeDriverCmd = cmd

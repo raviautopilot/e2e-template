@@ -40,4 +40,23 @@ func TestLoadConfig_PlaceholdersAndFallbacks(t *testing.T) {
 	if cfg.AdminLoginSubmitButtonTestID != cfg.SubmitButtonTestID {
 		t.Errorf("Expected AdminLoginSubmitButtonTestID to fallback to %s, got %s", cfg.SubmitButtonTestID, cfg.AdminLoginSubmitButtonTestID)
 	}
+
+	if cfg.ChromeDriverPath != "lib/chromedriver" {
+		t.Errorf("Expected ChromeDriverPath to be 'lib/chromedriver', got '%s'", cfg.ChromeDriverPath)
+	}
+}
+
+func TestLoadConfig_ChromeDriverPath_EnvOverride(t *testing.T) {
+	configPath := filepath.Join("..", "..", "config.json")
+	customPath := "/custom/bin/chromedriver"
+	t.Setenv("E2E_CHROMEDRIVER_PATH", customPath)
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.ChromeDriverPath != customPath {
+		t.Errorf("Expected ChromeDriverPath to be '%s', got '%s'", customPath, cfg.ChromeDriverPath)
+	}
 }

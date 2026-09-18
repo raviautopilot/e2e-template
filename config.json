@@ -6,6 +6,7 @@
   "baseUrl": "https://dev.varam.srilakshmiretail.com",
   "uiUrl": "https://dev.varam.srilakshmiretail.com",
   "seleniumUrl": "http://localhost:9515",
+  "chromeDriverPath": "lib/chromedriver",
   "headless": false,
   "timeout": 10,
 

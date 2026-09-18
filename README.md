@@ -216,6 +216,7 @@ func TestUI_ExampleComJourney(t *testing.T) {
 | `baseUrl` | `http://localhost:8080` | Your API's base URL |
 | `uiUrl` | `http://localhost:3000` | Your web app's URL |
 | `seleniumUrl` | `http://localhost:9515` | ChromeDriver address |
+| `chromeDriverPath` | `lib/chromedriver` | Path to ChromeDriver binary (defaults to system `chromedriver` if omitted) |
 | `headless` | `false` | Set `true` for headless Chrome (CI) |
 | `timeout` | `10` | Default timeout in seconds |
 | `adminCredentials` | — | Admin username/password for tests |
@@ -229,6 +230,7 @@ func TestUI_ExampleComJourney(t *testing.T) {
 | `baseUrl` | `E2E_BASE_URL` |
 | `uiUrl` | `E2E_UI_URL` |
 | `seleniumUrl` | `E2E_SELENIUM_URL` |
+| `chromeDriverPath` | `E2E_CHROMEDRIVER_PATH` |
 | `headless` | `E2E_HEADLESS` |
 | `timeout` | `E2E_TIMEOUT` |
 

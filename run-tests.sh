@@ -11,8 +11,39 @@ echo "========================================="
 echo " Starting Chromedriver & E2E Test Suite "
 echo "========================================="
 
-# 1. Start chromedriver in the background
-chromedriver --port=$PORT > /dev/null 2>&1 &
+# 1. Determine Chromedriver binary location
+CHROMEDRIVER_BIN="chromedriver"
+if [ -n "$E2E_CHROMEDRIVER_PATH" ]; then
+    CHROMEDRIVER_BIN="$E2E_CHROMEDRIVER_PATH"
+elif [ -f "config.json" ]; then
+    CONFIG_DRIVER=$(grep -o '"chromeDriverPath"[[:space:]]*:[[:space:]]*"[^"]*"' config.json | sed -E 's/"chromeDriverPath"[[:space:]]*:[[:space:]]*"([^"]*)"/\1/')
+    if [ -z "$CONFIG_DRIVER" ]; then
+        CONFIG_DRIVER=$(grep -o '"chromedriverPath"[[:space:]]*:[[:space:]]*"[^"]*"' config.json | sed -E 's/"chromedriverPath"[[:space:]]*:[[:space:]]*"([^"]*)"/\1/')
+    fi
+    if [ -n "$CONFIG_DRIVER" ]; then
+        CHROMEDRIVER_BIN="$CONFIG_DRIVER"
+    fi
+fi
+
+# Resolve relative path against script directory
+if [[ "$CHROMEDRIVER_BIN" != /* ]] && [ "$CHROMEDRIVER_BIN" != "chromedriver" ]; then
+    if [ -f "$SCRIPT_DIR/$CHROMEDRIVER_BIN" ]; then
+        CHROMEDRIVER_BIN="$SCRIPT_DIR/$CHROMEDRIVER_BIN"
+    fi
+fi
+
+# If a local driver file is specified but doesn't exist, warn and fallback to system chromedriver
+if [ "$CHROMEDRIVER_BIN" != "chromedriver" ] && [ ! -f "$CHROMEDRIVER_BIN" ]; then
+    echo "Warning: Configured ChromeDriver not found at $CHROMEDRIVER_BIN. Falling back to system 'chromedriver' in PATH."
+    CHROMEDRIVER_BIN="chromedriver"
+fi
+
+if [ -f "$CHROMEDRIVER_BIN" ] && [ ! -x "$CHROMEDRIVER_BIN" ]; then
+    chmod +x "$CHROMEDRIVER_BIN"
+fi
+
+echo "Using Chromedriver: $CHROMEDRIVER_BIN"
+$CHROMEDRIVER_BIN --port=$PORT > /dev/null 2>&1 &
 CHROMEDRIVER_PID=$!
 
 # 2. Setup automatic cleanup on exit (trap)
