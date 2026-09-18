@@ -1,6 +1,6 @@
 # E2E Framework Configuration & Customization Guide
 
-This guide walks you through cloning, configuring, and extending the E2E testing framework for a new web app and API target. We use `https://yourapp.com` (Frontend UI) and `https://api.yourapp.com` (Backend API) as placeholder examples — replace these with your actual URLs.
+This guide walks you through cloning, configuring, and extending the E2E testing framework for any web application and backend API target.
 
 ---
 
@@ -13,102 +13,184 @@ Clone this repository and verify dependencies:
 ./clone.sh /path/to/your-new-test-project
 cd /path/to/your-new-test-project
 
-# Install dependencies (Selenium bindings and other packages)
+# Install Go module dependencies
 make deps
 ```
 
 ---
 
-## 2. Configuring Targets
+## 2. Scaffolding a New Service Test Suite (Interactive Generator)
 
-Update `config.json` in the root of the repository with your application's URLs:
+Instead of manually creating test folders and copying files, use the built-in interactive generator script:
+
+```bash
+# 1. Interactive Mode (prompts for service name and type: API, UI, or Both)
+./create-service.sh
+
+# 2. Non-interactive CLI Mode (for automated scripts or CI/CD)
+./create-service.sh orders --api
+./create-service.sh payments --ui
+./create-service.sh checkout --all
+
+# 3. Makefile Shortcut
+make new-service name=billing
+```
+
+### What It Generates Automatically:
+* **For API**:
+  * `tests/api/<service>/main_test.go` — Test suite lifecycle bootstrap (`TestMain`).
+  * `tests/api/<service>/types_test.go` — Request/Response models with JSON tags.
+  * `tests/api/<service>/01_health_check_test.go` — Health endpoint test.
+  * `tests/api/<service>/02_parameterized_test.go` — Table-driven parameterized test matrix.
+* **For UI**:
+  * `pkg/ui/pages/<service>_page.go` — Page Object Model (POM) with selectors and action methods.
+  * `tests/ui/<service>/main_test.go` — UI suite lifecycle runner.
+  * `tests/ui/<service>/01_<service>_journey_test.go` — Browser journey test.
+
+---
+
+## 3. Configuring Targets & Credentials
+
+Update `config.json` in the root of the repository with your application's URLs and placeholder credentials:
 
 ```json
 {
-  "baseUrl": "https://api.yourapp.com",
-  "uiUrl": "https://yourapp.com",
+  "baseUrl": "https://api.yourdomain.com",
+  "uiUrl": "https://yourdomain.com",
   "seleniumUrl": "http://localhost:9515",
   "headless": false,
   "timeout": 10,
   "adminCredentials": {
-    "username": "admin@yourapp.com",
-    "password": "your-admin-password"
+    "username": "admin@yourdomain.com",
+    "password": "REPLACE_WITH_YOUR_PASSWORD"
   }
 }
 ```
 
-*Note: You can override these variables on the fly in CI environments using environment variables:*
+### 🔒 Best Practice: Supplying Credentials Securely
+To prevent committing passwords to GitHub, keep `config.json` with placeholder values and pass credentials dynamically via environment variables:
+
 ```bash
-E2E_BASE_URL=https://api.yourapp.com \
-E2E_UI_URL=https://yourapp.com \
-E2E_HEADLESS=true \
-make test-all
+E2E_BASE_URL=https://api.yourdomain.com \
+E2E_ADMIN_USERNAME=admin@yourdomain.com \
+E2E_ADMIN_PASSWORD=your-secret-password \
+./run-api-tests.sh <service-name>
 ```
 
 ---
 
-## 3. UI Element Capturing Techniques
+## 4. Writing API Tests (`tests/api/<service>/`)
 
-We use the **Page Object Model (POM)** pattern. To automate pages, you must identify stable element locators.
+Every service has its own dedicated package directory under `tests/api/<service>/`.
 
-### Finding Elements via Chrome DevTools
-1. Open Chrome, navigate to your app, right-click on any element (e.g., a Sign In button), and select **Inspect**.
-2. In the **Elements** panel of DevTools:
-   - Press `Ctrl + F` (or `Cmd + F` on macOS) to open the search bar.
-   - Test your selector candidates (CSS or XPath) to ensure they match exactly **1 element**.
+### 4.1 Request & Response Models (`types_test.go`)
+Define clean Go structs mapping your JSON request and response payloads:
 
-### Selector Strategy Guidelines
-* **Prefer data-testid attributes**: Add `data-testid="my-button"` to your UI elements and use `testid:my-button` in tests. This is the most stable strategy.
-* **Use IDs**: Selectors like `css:#login-email` or `css:#submit-btn` are fast and stable.
-* **Use Clean CSS Classes**: Look for semantic class names like `css:.navbar-brand` or `css:.btn-primary`.
-* **Avoid Auto-Generated Classes**: Avoid dynamic hashes (e.g. `css:.StyledButton-sc-1234a-0`). These change with every frontend build.
-* **Use Attributes**: Elements without IDs often have descriptive attributes:
-  - CSS: `css:input[name='email']` or `css:button[type='submit']`
-* **XPath for Text/Hierarchies**:
-  - Text Match: `xpath://button[contains(text(), 'Sign In')]`
-  - Sibling navigation: `xpath://div[@class='card-body']/following-sibling::div/button`
+```go
+package myservice_test
+
+type LoginRequest struct {
+    Email    string `json:"email,omitempty"`
+    Password string `json:"password,omitempty"`
+}
+
+type LoginResponse struct {
+    Token       string                 `json:"token,omitempty"`
+    AccessToken string                 `json:"access_token,omitempty"`
+    User        map[string]interface{} `json:"user,omitempty"`
+}
+```
+
+### 4.2 Parameterized / Table-Driven Tests (`01_login_parameterized_test.go`)
+Use the `tests.RunAPITestWithDetails` runner for rich failure tracking and automatic request/response logging:
+
+```go
+package myservice_test
+
+import (
+    "fmt"
+    "testing"
+    "time"
+
+    "e2e-template/pkg/api/actions"
+    "e2e-template/pkg/client"
+    "e2e-template/tests"
+)
+
+func TestAPI_01_AdminLogin(t *testing.T) {
+    baseURL := tests.GlobalConfig.BaseURL
+    apiClient := client.NewClient(baseURL, 15*time.Second, tests.ExecutionLogDir)
+
+    tests.RunAPITestWithDetails(
+        t,
+        "Admin Login - Valid Credentials",
+        "Submits admin credentials loaded dynamically from configuration.",
+        "HTTP 200 OK with Auth Token",
+        func(tc *tests.TestContext) {
+            testName := "Admin Login - Valid Credentials"
+            apiClient.SetTestName(testName)
+            tc.Client = apiClient
+
+            req := LoginRequest{
+                Email:    tests.GlobalConfig.AdminCredentials.Username,
+                Password: tests.GlobalConfig.AdminCredentials.Password,
+            }
+            var resp LoginResponse
+
+            // Pass pointer to struct &req
+            actions.PostAndExpectOK(tc, apiClient, "/api/v1/auth/login", &req, &resp)
+        },
+    )
+}
+```
 
 ---
 
-## 4. Coding Page Objects (UI Testing)
+## 5. Writing UI Tests (`tests/ui/<service>/`)
 
-Create a new file in `pkg/ui/pages/` representing a web page.
+UI tests use Selenium WebDriver with the **Page Object Model (POM)** pattern.
 
-### Create Page Object: `pkg/ui/pages/profile_page.go`
+### 5.1 Page Object (`pkg/ui/pages/<service>_page.go`)
+Define element locators (CSS, XPath, or `data-testid`) and helper interaction methods:
+
 ```go
 package pages
 
 import (
     "time"
-
-    "github.com/tebeka/selenium"
     "e2e-template/pkg/ui"
 )
 
-type ProfilePage struct {
+type LoginPage struct {
     *ui.Page
-    AvatarIcon   string
-    ProfileName  string
-    LogoutButton string
+    EmailInput    string
+    PasswordInput string
+    SubmitBtn     string
 }
 
-func NewProfilePage(driver selenium.WebDriver, screenshotDir string) *ProfilePage {
-    return &ProfilePage{
-        Page:         ui.NewPage(driver, screenshotDir),
-        AvatarIcon:   "css:.user-avatar",
-        ProfileName:  "css:#profile-header-name",
-        LogoutButton: "xpath://button[text()='Logout']",
+func NewLoginPage(page *ui.Page) *LoginPage {
+    return &LoginPage{
+        Page:          page,
+        EmailInput:    "css:input[name='email']",
+        PasswordInput: "css:input[name='password']",
+        SubmitBtn:     "css:button[type='submit']",
     }
 }
 
-func (p *ProfilePage) GetUsername(timeout time.Duration) (string, error) {
-    return p.GetText(p.ProfileName, timeout)
+func (p *LoginPage) Login(email, password string, timeout time.Duration) error {
+    if err := p.SendKeys(p.EmailInput, email, timeout); err != nil {
+        return err
+    }
+    if err := p.SendKeys(p.PasswordInput, password, timeout); err != nil {
+        return err
+    }
+    return p.Click(p.SubmitBtn, timeout)
 }
 ```
 
-### Write UI E2E Test: `tests/ui/profile_ui_test.go`
+### 5.2 UI Journey Test (`tests/ui/<service>/01_login_journey_test.go`)
 ```go
-package ui_test
+package myservice_test
 
 import (
     "testing"
@@ -119,32 +201,22 @@ import (
     "e2e-template/tests"
 )
 
-func TestUI_LoginFlow(t *testing.T) {
-    tests.RunUITest(t, "User Login Flow", func(t *testing.T, page *ui.Page) {
-        cfg := tests.GlobalConfig
-
-        // Navigate to login page
-        if err := page.Navigate(cfg.UiURL + "/login"); err != nil {
-            t.Fatalf("Failed to load login page: %v", err)
+func TestUI_LoginJourney(t *testing.T) {
+    tests.RunUITest(t, "Admin Login Journey", func(t *testing.T, page *ui.Page) {
+        loginPage := pages.NewLoginPage(page)
+        
+        // Navigate to UI URL
+        if err := page.GoToHome(tests.GlobalConfig.UiURL + "/login"); err != nil {
+            t.Fatalf("Failed to navigate: %v", err)
         }
 
-        loginPage := pages.NewLoginPage(page.Driver, page.ScreenshotDir)
-        profilePage := pages.NewProfilePage(page.Driver, page.ScreenshotDir)
-
-        // Perform login
-        err := loginPage.Login(cfg.AdminCredentials.Username, cfg.AdminCredentials.Password, 5*time.Second)
+        err := loginPage.Login(
+            tests.GlobalConfig.AdminCredentials.Username,
+            tests.GlobalConfig.AdminCredentials.Password,
+            5*time.Second,
+        )
         if err != nil {
-            t.Fatalf("Login attempt failed: %v", err)
-        }
-
-        // Verify the user's name is displayed after login
-        name, err := profilePage.GetUsername(5 * time.Second)
-        if err != nil {
-            t.Fatalf("Failed to fetch profile username: %v", err)
-        }
-
-        if name == "" {
-            t.Errorf("Expected a non-empty profile username after login")
+            t.Fatalf("Login action failed: %v", err)
         }
     })
 }
@@ -152,134 +224,64 @@ func TestUI_LoginFlow(t *testing.T) {
 
 ---
 
-## 5. Structuring API Models (API Testing)
+## 6. Running Tests & Viewing Reports
 
-API models map backend JSON keys to Go structs.
+### 6.1 Running API Tests
+```bash
+# Run a specific service test package:
+./run-api-tests.sh myservice
 
-### Where to put models?
-* **Shared Models**: Place in a new folder `pkg/models/` (e.g. `pkg/models/user.go`) if reused across multiple test suites.
-* **Test-Specific Models**: Place directly inside the test file (e.g. `tests/api/auth_test.go`) if only used in a single validation suite.
+# Run all API tests in the repository:
+./run-api-tests.sh
 
-### Example: API Authentication Structs
-
-#### Struct Design: `tests/api/types_test.go`
-```go
-package api_test
-
-// LoginRequest defines the payload sent to POST /v1/auth/login
-type LoginRequest struct {
-    Email    string `json:"email"`
-    Password string `json:"password"`
-}
-
-// UserProfile models user metadata returned in the login response.
-type UserProfile struct {
-    ID        string `json:"id"`
-    FirstName string `json:"first_name"`
-    LastName  string `json:"last_name"`
-    Email     string `json:"email"`
-}
-
-// LoginResponse defines the payload returned from POST /v1/auth/login
-type LoginResponse struct {
-    AccessToken string      `json:"access_token"`
-    TokenType   string      `json:"token_type"`
-    ExpiresIn   int         `json:"expires_in"`
-    User        UserProfile `json:"user"`
-}
+# Pass runtime credentials:
+E2E_ADMIN_PASSWORD=yourpassword ./run-api-tests.sh myservice
 ```
 
-#### Writing API E2E Test: `tests/api/auth_api_test.go`
-```go
-package api_test
-
-import (
-    "fmt"
-    "testing"
-
-    "e2e-template/tests"
-)
-
-func TestAPI_AuthenticateUser(t *testing.T) {
-    tests.RunAPITestWithDetails(
-        t,
-        "POST /auth/login returns an access token",
-        "Verifies that valid admin credentials produce a non-empty access token.",
-        "HTTP 200 OK with non-empty access_token",
-        func(tc *tests.TestContext) {
-            cfg := tests.GlobalConfig
-            reqPayload := &LoginRequest{
-                Email:    cfg.AdminCredentials.Username,
-                Password: cfg.AdminCredentials.Password,
-            }
-            var resp LoginResponse
-
-            err := tc.Client.SendHttpRequest("POST", "/v1/auth/login", nil, reqPayload, &resp, nil)
-            if err != nil {
-                tc.FailureReason = fmt.Sprintf("Login request failed: %v", err)
-                tc.Fatalf("Login request failed: %v", err)
-            }
-            tc.Actual = fmt.Sprintf("HTTP 200 OK, token=%q", resp.AccessToken)
-            if resp.AccessToken == "" {
-                tc.FailureReason = "Expected non-empty access_token"
-                tc.Errorf("Expected non-empty access_token")
-            }
-        },
-    )
-}
-```
-
----
-
-## 6. Execution Flow and Verification
-
-1. Start your local Chromedriver:
+### 6.2 Running UI Tests
+1. Start Selenium / Chromedriver (or Docker standalone container):
    ```bash
+   # Option A: Local chromedriver
    chromedriver --port=9515
-   ```
 
-2. Run your tests:
+   # Option B: Docker container
+   docker compose up -d
+   ```
+2. Execute UI tests:
    ```bash
-   # Run all test suites (API + UI)
-   make test-all
+   # Run a specific service UI test:
+   ./run-ui-tests.sh myservice
 
-   # Run only API tests
-   make test-api
-
-   # Run only UI tests
-   make test-ui
-
-   # Run a specific test by name
-   go test -v ./tests/... -run=TestAPI_AuthenticateUser
+   # Run headless mode (no browser popup):
+   E2E_HEADLESS=true ./run-ui-tests.sh myservice
    ```
 
-3. Open the generated HTML dashboard to review results:
-   ```bash
-   # The path is printed to terminal after the run
-   open evidence/run-<timestamp>/reports/report.html
-   ```
+### 6.3 Viewing Reports & Evidence
+After every test run, reports and evidence are automatically compiled into the `evidence/` directory:
+- **HTML Dashboard**: `evidence/run-<timestamp>/reports/report.html` (interactive dashboard with clickable request/response logs and failure screenshots)
+- **Markdown Summary**: `evidence/run-<timestamp>/reports/report.md`
+- **JSON Raw Log**: `evidence/run-<timestamp>/reports/report.json`
+- **Raw Request/Response Payloads**: `evidence/run-<timestamp>/requests/`
+- **Failure Screenshots**: `evidence/run-<timestamp>/screenshots/`
 
 ---
 
-## 7. Seeding Test Data
+## 7. Package and Directory Layout Conventions
 
-If your test suite needs pre-populated data (e.g., a test user in the database), override the `seedTestData()` function in `tests/helpers.go`:
+Always keep the repository clean and modular:
 
-```go
-// In tests/helpers.go — replace the empty stub:
-func seedTestData() {
-    if err := createTestUser(GlobalConfig); err != nil {
-        fmt.Printf("WARNING: Failed to seed test user: %v\n", err)
-    }
-}
+```text
+tests/
+├── api/
+│   ├── example/          # Reference template API tests
+│   └── <service-name>/   # Your custom service API tests
+└── ui/
+    ├── example/          # Reference template UI tests
+    └── <service-name>/   # Your custom service UI tests
+pkg/
+├── api/actions/          # HTTP verb action helpers (GetAndExpectOK, etc.)
+├── client/               # Custom HTTP client & request/response logger
+├── config/               # Configuration & env var override loader
+├── ui/pages/             # Page Object Model definitions
+└── report/               # HTML & Markdown report compiler
 ```
-
----
-
-## 8. Adding New Test Files
-
-Follow this naming convention for test files:
-- API tests: `tests/api/XX-feature-name_test.go` (e.g. `tests/api/02-auth_test.go`)
-- UI tests: `tests/ui/XX-journey-name_test.go` (e.g. `tests/ui/02-login-flow_test.go`)
-- Page objects: `pkg/ui/pages/feature_page.go`
-- Action helpers: `pkg/ui/actions/persona_actions.go`
