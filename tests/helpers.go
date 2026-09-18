@@ -20,6 +20,7 @@ import (
 	"e2e-template/pkg/logger"
 	"e2e-template/pkg/report"
 	"e2e-template/pkg/ui"
+	"e2e-template/pkg/utils"
 )
 
 // GlobalConfig holds the environment configuration used across tests.
@@ -40,21 +41,7 @@ var (
 var setupOnce sync.Once
 
 func findModuleRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return "", fmt.Errorf("go.mod not found")
+	return utils.FindProjectRoot()
 }
 
 // SetupSuite initializes the test suite configuration and directory structure.
