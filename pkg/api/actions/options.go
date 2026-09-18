@@ -7,61 +7,41 @@ import (
 	"e2e-template/tests"
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OPTIONS Action Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-// OptionsAndExpectOK sends an OPTIONS request and expects HTTP 200 OK.
-func OptionsAndExpectOK(tc *tests.TestContext, c *client.Client, path string, resp interface{}) {
-	err := c.SendHttpRequest("OPTIONS", path, nil, nil, resp, nil)
-	if err != nil {
-		tc.FailureReason = fmt.Sprintf("OPTIONS %s failed: %v", path, err)
-		tc.Fatalf("OPTIONS %s failed: %v", path, err)
-	}
-	tc.Actual = fmt.Sprintf("HTTP 200 OK for OPTIONS %s", path)
+// Options executes an OPTIONS request without asserting the response status.
+// It is up to the caller to validate the returned error or response.
+func Options(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) error {
+	return sendHttpRequest(c, "OPTIONS", path, headers, reqBody, respBody, auth)
 }
 
-// OptionsAndExpectStatus sends an OPTIONS request and expects a specific status code.
-func OptionsAndExpectStatus(tc *tests.TestContext, c *client.Client, path string, wantStatus int) {
-	var dummy map[string]interface{}
-	err := c.SendHttpRequest("OPTIONS", path, nil, nil, &dummy, nil)
-	if wantStatus >= 200 && wantStatus < 300 {
-		if err != nil {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got error: %v", wantStatus, err)
-			tc.Errorf("Expected %d, got error: %v", wantStatus, err)
-		} else {
-			tc.Actual = fmt.Sprintf("HTTP %d OK as expected", wantStatus)
+// OptionsAndExpectOK executes an OPTIONS request and asserts HTTP 2xx success.
+func OptionsAndExpectOK(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) {
+	if err := Options(tc, c, path, headers, reqBody, respBody, auth); err != nil {
+		if tc != nil {
+			tc.FailureReason = err.Error()
+			tc.Fatalf("%v", err)
 		}
-	} else {
-		if err == nil {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got 200 OK", wantStatus)
-			tc.Errorf("Expected %d, got 200 OK", wantStatus)
-		} else if err.StatusCode() != wantStatus {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got %d", wantStatus, err.StatusCode())
-			tc.Errorf("Expected %d, got %d", wantStatus, err.StatusCode())
-		} else {
-			tc.Actual = fmt.Sprintf("HTTP %d as expected", wantStatus)
+		return
+	}
+	if tc != nil {
+		tc.Actual = fmt.Sprintf("HTTP 2xx OK for OPTIONS %s", path)
+	}
+}
+
+// OptionsAndExpectStatus executes an OPTIONS request and asserts the status code matches wantStatus.
+func OptionsAndExpectStatus(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
+	if err := sendHttpRequestAndExpectStatus(c, "OPTIONS", path, headers, reqBody, respBody, auth, wantStatus); err != nil {
+		if tc != nil {
+			tc.FailureReason = err.Error()
+			tc.Errorf("%v", err)
 		}
+		return
+	}
+	if tc != nil {
+		tc.Actual = fmt.Sprintf("HTTP %d as expected for OPTIONS %s", wantStatus, path)
 	}
 }
 
-// OptionsWithHeadersAndExpectOK sends an OPTIONS request with custom headers, expects 200 OK.
-func OptionsWithHeadersAndExpectOK(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, resp interface{}) {
-	err := c.SendHttpRequest("OPTIONS", path, headers, nil, resp, nil)
-	if err != nil {
-		tc.FailureReason = fmt.Sprintf("OPTIONS %s failed: %v", path, err)
-		tc.Fatalf("OPTIONS %s failed: %v", path, err)
-	}
-	tc.Actual = fmt.Sprintf("HTTP 200 OK for OPTIONS %s", path)
-}
-
-// AuthenticatedOptions sends an OPTIONS request with auth credentials, expects 200 OK.
-func AuthenticatedOptions(tc *tests.TestContext, c *client.Client, path string, auth client.Authenticator, resp interface{}) {
-	err := c.SendHttpRequest("OPTIONS", path, nil, nil, resp, auth)
-	if err != nil {
-		tc.FailureReason = fmt.Sprintf("Authenticated OPTIONS %s failed: %v", path, err)
-		tc.Errorf("Authenticated OPTIONS %s failed: %v", path, err)
-	} else {
-		tc.Actual = fmt.Sprintf("HTTP 200 OK (authenticated) for OPTIONS %s", path)
-	}
+// OptionsAndExpectStatusCode is an alias for OptionsAndExpectStatus.
+func OptionsAndExpectStatusCode(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
+	OptionsAndExpectStatus(tc, c, path, headers, reqBody, respBody, auth, wantStatus)
 }

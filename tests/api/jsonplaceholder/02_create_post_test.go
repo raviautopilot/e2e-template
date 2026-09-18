@@ -20,7 +20,7 @@ func TestAPI_JSONPlaceholder_02_CreatePost(t *testing.T) {
 				"userId": 1,
 			}
 			var created jsonPlaceholderPost
-			actions.PostAndExpectCreated(tc, apiClient, "/posts", &newPost, &created)
+			actions.PostAndExpectOK(tc, apiClient, "/posts", nil, &newPost, &created, nil)
 			actions.AssertNotZero(tc, "id", created.ID)
 			actions.AssertEquals(tc, "title", created.Title, "E2E Test Post")
 		},

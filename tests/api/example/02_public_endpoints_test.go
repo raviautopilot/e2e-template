@@ -22,7 +22,7 @@ func TestAPI_Example_02_PublicEndpoints(t *testing.T) {
 		client2,
 		func(tc *tests.TestContext) {
 			var resp RootResponse
-			actions.GetAndExpectOK(tc, tc.Client, "/", &resp)
+			actions.GetAndExpectOK(tc, tc.Client, "/", nil, nil, &resp, nil)
 			actions.AssertNotEmpty(tc, "message", resp.Message)
 		},
 	)

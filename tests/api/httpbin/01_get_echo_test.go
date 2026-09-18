@@ -21,11 +21,11 @@ func TestAPI_HttpBin_01_GetEcho(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp httpbinGetResponse
-			actions.GetAndExpectOK(tc, apiClient, "/get", &resp)
+			actions.GetAndExpectOK(tc, apiClient, "/get", nil, nil, &resp, nil)
 			actions.AssertNotEmpty(tc, "url", resp.URL)
 
 			var paramResp httpbinGetResponse
-			actions.GetAndExpectOK(tc, apiClient, "/get?search=golang&limit=10", &paramResp)
+			actions.GetAndExpectOK(tc, apiClient, "/get?search=golang&limit=10", nil, nil, &paramResp, nil)
 			actions.AssertEquals(tc, "search", paramResp.Args["search"], "golang")
 			actions.AssertEquals(tc, "limit", paramResp.Args["limit"], "10")
 		},

@@ -7,61 +7,41 @@ import (
 	"e2e-template/tests"
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUT Action Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-// PutAndExpectOK sends a PUT request with a JSON body pointer, expects 200 OK.
-func PutAndExpectOK(tc *tests.TestContext, c *client.Client, path string, body interface{}, resp interface{}) {
-	err := c.SendHttpRequest("PUT", path, nil, body, resp, nil)
-	if err != nil {
-		tc.FailureReason = fmt.Sprintf("PUT %s failed: %v", path, err)
-		tc.Fatalf("PUT %s failed: %v", path, err)
-	}
-	tc.Actual = fmt.Sprintf("HTTP 200 OK for PUT %s", path)
+// Put executes a PUT request without asserting the response status.
+// It is up to the caller to validate the returned error or response.
+func Put(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) error {
+	return sendHttpRequest(c, "PUT", path, headers, reqBody, respBody, auth)
 }
 
-// PutAndExpectStatus sends a PUT request and expects a specific HTTP status code.
-func PutAndExpectStatus(tc *tests.TestContext, c *client.Client, path string, body interface{}, wantStatus int) {
-	var dummy map[string]interface{}
-	err := c.SendHttpRequest("PUT", path, nil, body, &dummy, nil)
-	if wantStatus >= 200 && wantStatus < 300 {
-		if err != nil {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got error: %v", wantStatus, err)
-			tc.Errorf("Expected %d, got error: %v", wantStatus, err)
-		} else {
-			tc.Actual = fmt.Sprintf("HTTP %d OK as expected", wantStatus)
+// PutAndExpectOK executes a PUT request and asserts HTTP 2xx success.
+func PutAndExpectOK(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) {
+	if err := Put(tc, c, path, headers, reqBody, respBody, auth); err != nil {
+		if tc != nil {
+			tc.FailureReason = err.Error()
+			tc.Fatalf("%v", err)
 		}
-	} else {
-		if err == nil {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got 200 OK", wantStatus)
-			tc.Errorf("Expected %d, got 200 OK", wantStatus)
-		} else if err.StatusCode() != wantStatus {
-			tc.FailureReason = fmt.Sprintf("Expected %d, got %d", wantStatus, err.StatusCode())
-			tc.Errorf("Expected %d, got %d", wantStatus, err.StatusCode())
-		} else {
-			tc.Actual = fmt.Sprintf("HTTP %d as expected", wantStatus)
+		return
+	}
+	if tc != nil {
+		tc.Actual = fmt.Sprintf("HTTP 2xx OK for PUT %s", path)
+	}
+}
+
+// PutAndExpectStatus executes a PUT request and asserts the status code matches wantStatus.
+func PutAndExpectStatus(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
+	if err := sendHttpRequestAndExpectStatus(c, "PUT", path, headers, reqBody, respBody, auth, wantStatus); err != nil {
+		if tc != nil {
+			tc.FailureReason = err.Error()
+			tc.Errorf("%v", err)
 		}
+		return
+	}
+	if tc != nil {
+		tc.Actual = fmt.Sprintf("HTTP %d as expected for PUT %s", wantStatus, path)
 	}
 }
 
-// PutWithHeadersAndExpectOK sends a PUT request with custom headers, expects 200 OK.
-func PutWithHeadersAndExpectOK(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, body interface{}, resp interface{}) {
-	err := c.SendHttpRequest("PUT", path, headers, body, resp, nil)
-	if err != nil {
-		tc.FailureReason = fmt.Sprintf("PUT %s failed: %v", path, err)
-		tc.Fatalf("PUT %s failed: %v", path, err)
-	}
-	tc.Actual = fmt.Sprintf("HTTP 200 OK for PUT %s", path)
-}
-
-// AuthenticatedPut sends a PUT request with auth credentials, expects 200 OK.
-func AuthenticatedPut(tc *tests.TestContext, c *client.Client, path string, auth client.Authenticator, body interface{}, resp interface{}) {
-	err := c.SendHttpRequest("PUT", path, nil, body, resp, auth)
-	if err != nil {
-		tc.FailureReason = fmt.Sprintf("Authenticated PUT %s failed: %v", path, err)
-		tc.Errorf("Authenticated PUT %s failed: %v", path, err)
-	} else {
-		tc.Actual = fmt.Sprintf("HTTP 200 OK (authenticated) for PUT %s", path)
-	}
+// PutAndExpectStatusCode is an alias for PutAndExpectStatus.
+func PutAndExpectStatusCode(tc *tests.TestContext, c *client.Client, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
+	PutAndExpectStatus(tc, c, path, headers, reqBody, respBody, auth, wantStatus)
 }

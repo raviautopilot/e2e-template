@@ -271,7 +271,7 @@ func TestAPI_${PASCAL_NAME}_01_HealthCheck(t *testing.T) {
 		func(tc *tests.TestContext) {
 			var resp HealthResponse
 			// Adjust endpoint path to match your service (/health, /api/health, /ping, etc.)
-			actions.GetAndExpectOK(tc, apiClient, "/health", &resp)
+			actions.GetAndExpectOK(tc, apiClient, "/health", nil, nil, &resp, nil)
 			actions.AssertNotEmpty(tc, "status", resp.Status)
 		},
 	)
@@ -372,9 +372,9 @@ func TestAPI_${PASCAL_NAME}_02_Parameterized(t *testing.T) {
 					targetEndpoint := "/api/v1/${SERVICE_SLUG}"
 
 					if sc.ExpectSuccess {
-						actions.PostAndExpectOK(tc, apiClient, targetEndpoint, &sc.Payload, &resp)
+						actions.PostAndExpectOK(tc, apiClient, targetEndpoint, nil, &sc.Payload, &resp, nil)
 					} else {
-						actions.PostAndExpectStatus(tc, apiClient, targetEndpoint, &sc.Payload, sc.WantStatusCode)
+						actions.PostAndExpectStatus(tc, apiClient, targetEndpoint, nil, &sc.Payload, nil, nil, sc.WantStatusCode)
 					}
 				},
 			)
