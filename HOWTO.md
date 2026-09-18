@@ -110,27 +110,23 @@ package myservice_test
 import (
     "fmt"
     "testing"
-    "time"
 
     "e2e-template/pkg/api/actions"
-    "e2e-template/pkg/client"
     "e2e-template/tests"
 )
 
-func TestAPI_01_AdminLogin(t *testing.T) {
-    baseURL := tests.GlobalConfig.BaseURL
-    apiClient := client.NewClient(baseURL, 15*time.Second, tests.ExecutionLogDir)
+// In main_test.go:
+// var apiClient, client2 = tests.NewServiceClients(tests.GlobalConfig.BaseURL)
 
-    tests.RunAPITestWithDetails(
+func TestAPI_01_AdminLogin(t *testing.T) {
+    tests.RunAPITestWithClients(
         t,
         "Admin Login - Valid Credentials",
         "Submits admin credentials loaded dynamically from configuration.",
         "HTTP 200 OK with Auth Token",
+        apiClient,
+        client2,
         func(tc *tests.TestContext) {
-            testName := "Admin Login - Valid Credentials"
-            apiClient.SetTestName(testName)
-            tc.Client = apiClient
-
             req := LoginRequest{
                 Email:    tests.GlobalConfig.AdminCredentials.Username,
                 Password: tests.GlobalConfig.AdminCredentials.Password,

@@ -185,13 +185,20 @@ import (
 	"os"
 	"testing"
 
+	"e2e-template/pkg/client"
 	"e2e-template/tests"
+)
+
+var (
+	apiClient *client.Client
+	client2   *client.Client
 )
 
 // TestMain bootstraps the test suite for the ${SERVICE_SLUG} service.
 // It initializes global configs, sets up reporting, and handles test suite lifecycle.
 func TestMain(m *testing.M) {
 	tests.SetupSuite()
+	apiClient, client2 = tests.NewServiceClients(tests.GlobalConfig.BaseURL)
 	exitCode := m.Run()
 	tests.TeardownSuite()
 	os.Exit(exitCode)
@@ -247,27 +254,21 @@ package ${PKG_NAME}_test
 
 import (
 	"testing"
-	"time"
 
 	"e2e-template/pkg/api/actions"
-	"e2e-template/pkg/client"
 	"e2e-template/tests"
 )
 
 // TestAPI_${PASCAL_NAME}_01_HealthCheck verifies service availability and health.
 func TestAPI_${PASCAL_NAME}_01_HealthCheck(t *testing.T) {
-	baseURL := tests.GlobalConfig.BaseURL
-	apiClient := client.NewClient(baseURL, 15*time.Second, tests.ExecutionLogDir)
-
-	tests.RunAPITestWithDetails(
+	tests.RunAPITestWithClients(
 		t,
 		"${PASCAL_NAME} - Service Health Check",
 		"Verifies that the ${SERVICE_SLUG} health check endpoint responds with 200 OK.",
 		"HTTP 200 OK with healthy status payload",
+		apiClient,
+		client2,
 		func(tc *tests.TestContext) {
-			apiClient.SetTestName("${PASCAL_NAME} - Service Health Check")
-			tc.Client = apiClient
-
 			var resp HealthResponse
 			// Adjust endpoint path to match your service (/health, /api/health, /ping, etc.)
 			actions.GetAndExpectOK(tc, apiClient, "/health", &resp)
@@ -285,10 +286,8 @@ package ${PKG_NAME}_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"e2e-template/pkg/api/actions"
-	"e2e-template/pkg/client"
 	"e2e-template/tests"
 )
 
@@ -303,9 +302,6 @@ type ${PASCAL_NAME}TestCase struct {
 
 // TestAPI_${PASCAL_NAME}_02_Parameterized executes table-driven test scenarios.
 func TestAPI_${PASCAL_NAME}_02_Parameterized(t *testing.T) {
-	baseURL := tests.GlobalConfig.BaseURL
-	apiClient := client.NewClient(baseURL, 15*time.Second, tests.ExecutionLogDir)
-
 	scenarios := []${PASCAL_NAME}TestCase{
 		{
 			Name:        "Valid Resource Creation",
@@ -363,15 +359,14 @@ func TestAPI_${PASCAL_NAME}_02_Parameterized(t *testing.T) {
 
 			testName := fmt.Sprintf("${PASCAL_NAME} - %s", sc.Name)
 
-			tests.RunAPITestWithDetails(
+			tests.RunAPITestWithClients(
 				t,
 				testName,
 				sc.Description,
 				expectedText,
+				apiClient,
+				client2,
 				func(tc *tests.TestContext) {
-					apiClient.SetTestName(testName)
-					tc.Client = apiClient
-
 					var resp ${PASCAL_NAME}Response
 					// Adjust endpoint path to your target API route (e.g. /api/v1/${SERVICE_SLUG})
 					targetEndpoint := "/api/v1/${SERVICE_SLUG}"

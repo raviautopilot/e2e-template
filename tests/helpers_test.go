@@ -46,3 +46,46 @@ func TestResolveChromeDriverPath(t *testing.T) {
 		t.Errorf("Expected '%s', got '%s'", absPath, p)
 	}
 }
+
+func TestNewServiceClient_And_NewServiceClients(t *testing.T) {
+	if GlobalConfig == nil {
+		SetupSuite()
+	}
+
+	testURL := "https://api.testservice.local"
+	c := NewServiceClient(testURL)
+	if c == nil {
+		t.Fatalf("Expected non-nil client from NewServiceClient")
+	}
+	if c.BaseURL != testURL {
+		t.Errorf("Expected BaseURL %s, got %s", testURL, c.BaseURL)
+	}
+
+	c1, c2 := NewServiceClients(testURL)
+	if c1 == nil || c2 == nil {
+		t.Fatalf("Expected non-nil clients from NewServiceClients")
+	}
+	if c1 == c2 {
+		t.Errorf("Expected c1 and c2 to be distinct instances, got identical pointer")
+	}
+	if c1.BaseURL != testURL || c2.BaseURL != testURL {
+		t.Errorf("Expected BaseURL %s for both clients", testURL)
+	}
+}
+
+func TestRunAPITestWithClients_DualClientContext(t *testing.T) {
+	c1, c2 := NewServiceClients("https://api.testservice.local")
+
+	RunAPITestWithClients(t, "Dual Client Test Demo", "Validates c1 and c2 are injected into TestContext", "Both clients present in context", c1, c2, func(tc *TestContext) {
+		if tc.Client == nil {
+			tc.Errorf("Expected tc.Client to be populated")
+		}
+		if tc.Client2 == nil {
+			tc.Errorf("Expected tc.Client2 to be populated")
+		}
+		if tc.Client == tc.Client2 {
+			tc.Errorf("Expected tc.Client and tc.Client2 to be distinct instances")
+		}
+	})
+}
+

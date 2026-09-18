@@ -25,13 +25,16 @@ import (
 // GlobalConfig holds the environment configuration used across tests.
 var GlobalConfig *config.Config
 
-// Global evidence directories for the current test run
+// Global evidence directories and clients for the current test run
 var (
 	RunTimestamp           string
 	EvidenceDir            string
 	ExecutionLogDir        string
 	ExecutionReportDir     string
 	ExecutionScreenshotDir string
+
+	DefaultClient   *client.Client
+	SecondaryClient *client.Client
 )
 
 var setupOnce sync.Once
@@ -126,12 +129,34 @@ func SetupSuite() {
 			fmt.Printf("WARNING: Failed to create screenshot directory: %v\n", err)
 		}
 
+		// Initialize default and secondary service clients for GlobalConfig.BaseURL
+		DefaultClient, SecondaryClient = NewServiceClients(GlobalConfig.BaseURL)
+
 		// Seed any test data your project requires before tests run.
 		// Replace or extend this function for your project.
 		seedTestData()
 
 		logger.SetLevel(logger.INFO)
 	})
+}
+
+// NewServiceClient initializes a new client for a given service baseURL
+// using the suite's configured timeout and ExecutionLogDir.
+func NewServiceClient(baseURL string) *client.Client {
+	if GlobalConfig == nil {
+		SetupSuite()
+	}
+	timeout := 15 * time.Second
+	if GlobalConfig != nil && GlobalConfig.Timeout > 0 {
+		timeout = time.Duration(GlobalConfig.Timeout) * time.Second
+	}
+	return client.NewClient(baseURL, timeout, ExecutionLogDir)
+}
+
+// NewServiceClients initializes a pair of clients (primary and secondary) for a service.
+// This is ideal for tests requiring two distinct clients (e.g. admin vs member, or user1 vs user2).
+func NewServiceClients(baseURL string) (*client.Client, *client.Client) {
+	return NewServiceClient(baseURL), NewServiceClient(baseURL)
 }
 
 // seedTestData is called once during SetupSuite.
@@ -335,14 +360,15 @@ func TeardownSuite() {
 type TestContext struct {
 	*testing.T
 	Client        *client.Client
+	Client2       *client.Client // Pre-initialized secondary client for multi-client / dual-role testing
 	Description   string
 	Expected      string
 	Actual        string
 	FailureReason string
 }
 
-// RunAPITestWithDetails executes an API test with rich description, expected, actual, and failure tracking.
-func RunAPITestWithDetails(t *testing.T, name string, description string, expected string, fn func(tc *TestContext)) {
+// RunAPITestWithClients executes an API test injecting specific pre-initialized service clients (e.g. client1, client2).
+func RunAPITestWithClients(t *testing.T, name string, description string, expected string, c1 *client.Client, c2 *client.Client, fn func(tc *TestContext)) {
 	if GlobalConfig == nil {
 		SetupSuite()
 	}
@@ -355,10 +381,24 @@ func RunAPITestWithDetails(t *testing.T, name string, description string, expect
 	}
 
 	t.Run(name, func(subT *testing.T) {
-		c := client.NewClient(GlobalConfig.BaseURL, time.Duration(GlobalConfig.Timeout)*time.Second, ExecutionLogDir)
+		if c1 == nil {
+			c1 = DefaultClient
+		}
+		if c2 == nil {
+			c2 = SecondaryClient
+		}
+
+		if c1 != nil {
+			c1.SetTestName(name)
+		}
+		if c2 != nil {
+			c2.SetTestName(name)
+		}
+
 		tc := &TestContext{
 			T:           subT,
-			Client:      c,
+			Client:      c1,
+			Client2:     c2,
 			Description: description,
 			Expected:    expected,
 		}
@@ -371,8 +411,10 @@ func RunAPITestWithDetails(t *testing.T, name string, description string, expect
 			if subT.Failed() {
 				status = "failed"
 				errStr = "API assertion or validation error."
-				if c.LastError != nil {
-					errStr = c.LastError.Error()
+				if tc.Client != nil && tc.Client.LastError != nil {
+					errStr = tc.Client.LastError.Error()
+				} else if tc.Client2 != nil && tc.Client2.LastError != nil {
+					errStr = tc.Client2.LastError.Error()
 				}
 				if tc.FailureReason == "" {
 					tc.FailureReason = errStr
@@ -394,6 +436,11 @@ func RunAPITestWithDetails(t *testing.T, name string, description string, expect
 	})
 }
 
+// RunAPITestWithDetails executes an API test with rich description, expected, actual, and failure tracking.
+func RunAPITestWithDetails(t *testing.T, name string, description string, expected string, fn func(tc *TestContext)) {
+	RunAPITestWithClients(t, name, description, expected, DefaultClient, SecondaryClient, fn)
+}
+
 // RunAPITest is a wrapper executing an API test case, injecting a custom Client and logging results.
 func RunAPITest(t *testing.T, name string, fn func(t *testing.T, c *client.Client)) {
 	if GlobalConfig == nil {
@@ -408,7 +455,11 @@ func RunAPITest(t *testing.T, name string, fn func(t *testing.T, c *client.Clien
 	}
 
 	t.Run(name, func(subT *testing.T) {
-		c := client.NewClient(GlobalConfig.BaseURL, time.Duration(GlobalConfig.Timeout)*time.Second, ExecutionLogDir)
+		c := DefaultClient
+		if c == nil {
+			c = NewServiceClient(GlobalConfig.BaseURL)
+		}
+		c.SetTestName(name)
 
 		defer func() {
 			duration := time.Since(startTime)

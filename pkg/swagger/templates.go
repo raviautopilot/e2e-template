@@ -9,11 +9,18 @@ import (
 	"os"
 	"testing"
 
+	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
+)
+
+var (
+	apiClient *client.Client
+	client2   *client.Client
 )
 
 func TestMain(m *testing.M) {
 	tests.SetupSuite()
+	apiClient, client2 = tests.NewServiceClients("{{.BaseURL}}")
 	exitCode := m.Run()
 	tests.TeardownSuite()
 	os.Exit(exitCode)
@@ -43,23 +50,20 @@ var listTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_List verifies listing {{.Group.Tag}} resources.
 func TestAPI_{{sanitize .Group.Tag}}_List(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
-
-	tests.RunAPITestWithDetails(t, "List {{.Group.Tag}} — GET {{.Endpoint.Path}}",
+	tests.RunAPITestWithClients(t, "List {{.Group.Tag}} — GET {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
 		"HTTP {{.Endpoint.SuccessCode}} OK with array response",
+		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp []map[string]interface{}
-			actions.GetAndExpectOK(tc, c, "{{.Endpoint.Path}}", &resp)
+			actions.GetAndExpectOK(tc, apiClient, "{{.Endpoint.Path}}", &resp)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — received %d items", len(resp))
 		},
 	)
@@ -72,25 +76,22 @@ var createTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_Create verifies creating a new {{.Group.Tag}} resource.
 func TestAPI_{{sanitize .Group.Tag}}_Create(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
-
-	tests.RunAPITestWithDetails(t, "Create {{.Group.Tag}} — POST {{.Endpoint.Path}}",
+	tests.RunAPITestWithClients(t, "Create {{.Group.Tag}} — POST {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
 		"HTTP {{.Endpoint.SuccessCode}} Created with resource in response body",
+		apiClient, client2,
 		func(tc *tests.TestContext) {
 			body := {{buildExampleBody .ModelName .Definitions}}
 
 			var resp map[string]interface{}
-			actions.PostAndExpectCreated(tc, c, "{{.Endpoint.Path}}", &body, &resp)
+			actions.PostAndExpectCreated(tc, apiClient, "{{.Endpoint.Path}}", &body, &resp)
 
 			var createdID float64
 			if id, ok := resp["id"]; ok {
@@ -110,26 +111,23 @@ var getTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_GetByID verifies retrieving a {{.Group.Tag}} resource by ID.
 func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
-
-	tests.RunAPITestWithDetails(t, "Get {{.Group.Tag}} by ID — GET {{.Endpoint.Path}}",
+	tests.RunAPITestWithClients(t, "Get {{.Group.Tag}} by ID — GET {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
 		"HTTP {{.Endpoint.SuccessCode}} OK with matching resource",
+		apiClient, client2,
 		func(tc *tests.TestContext) {
 {{if .Group.CreateEndpoint}}
 			// 1. Create a temporary resource to fetch
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.PostAndExpectCreated(tc, c, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
+			actions.PostAndExpectCreated(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -142,7 +140,7 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 			// 2. Fetch resource by ID
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			var resp map[string]interface{}
-			actions.GetAndExpectOK(tc, c, path, &resp)
+			actions.GetAndExpectOK(tc, apiClient, path, &resp)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — retrieved resource ID %v", createdID)
 		},
 	)
@@ -155,26 +153,23 @@ var updateTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_Update verifies updating a {{.Group.Tag}} resource.
 func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
-
-	tests.RunAPITestWithDetails(t, "Update {{.Group.Tag}} — {{.Endpoint.Method}} {{.Endpoint.Path}}",
+	tests.RunAPITestWithClients(t, "Update {{.Group.Tag}} — {{.Endpoint.Method}} {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
 		"HTTP {{.Endpoint.SuccessCode}} OK with updated resource",
+		apiClient, client2,
 		func(tc *tests.TestContext) {
 {{if .Group.CreateEndpoint}}
 			// 1. Create a temporary resource to update
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.PostAndExpectCreated(tc, c, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
+			actions.PostAndExpectCreated(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -188,7 +183,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
 			updateBody := {{buildUpdateBody .ModelName .Definitions}}
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			var resp map[string]interface{}
-			actions.PutAndExpectOK(tc, c, path, &updateBody, &resp)
+			actions.PutAndExpectOK(tc, apiClient, path, &updateBody, &resp)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — updated resource ID %v", createdID)
 		},
 	)
@@ -201,26 +196,23 @@ var deleteTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_Delete verifies deleting a {{.Group.Tag}} resource.
 func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
-
-	tests.RunAPITestWithDetails(t, "Delete {{.Group.Tag}} — DELETE {{.Endpoint.Path}}",
+	tests.RunAPITestWithClients(t, "Delete {{.Group.Tag}} — DELETE {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
 		"HTTP {{.Endpoint.SuccessCode}} No Content followed by 404 Not Found",
+		apiClient, client2,
 		func(tc *tests.TestContext) {
 {{if .Group.CreateEndpoint}}
 			// 1. Create a temporary resource to delete
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.PostAndExpectCreated(tc, c, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
+			actions.PostAndExpectCreated(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", &createBody, &createResp)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -232,12 +224,12 @@ func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
 {{end}}
 			// 2. Delete the resource
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
-			actions.DeleteAndExpectNoContent(tc, c, path)
+			actions.DeleteAndExpectNoContent(tc, apiClient, path)
 
 {{with .Group.GetByIDEndpoint}}
 			// 3. Verify resource is removed (GET returns 404)
 			verifyPath := fmt.Sprintf("{{pathParamReplace .Path}}", int(createdID))
-			actions.GetAndExpectStatus(tc, c, verifyPath, 404)
+			actions.GetAndExpectStatus(tc, apiClient, verifyPath, 404)
 {{end}}
 			tc.Actual = fmt.Sprintf("HTTP 204 No Content — deleted and verified resource ID %v", createdID)
 		},
@@ -251,17 +243,13 @@ var parameterizedTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_Parameterized runs table-driven parameterized tests for {{.Group.Tag}}.
 func TestAPI_{{sanitize .Group.Tag}}_Parameterized(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
-
 	type testCase struct {
 		name           string
 		description    string
@@ -306,20 +294,21 @@ func TestAPI_{{sanitize .Group.Tag}}_Parameterized(t *testing.T) {
 
 	for _, tcData := range testCases {
 		tcData := tcData
-		tests.RunAPITestWithDetails(t, tcData.name,
+		tests.RunAPITestWithClients(t, tcData.name,
 			tcData.description,
 			fmt.Sprintf("HTTP %d", tcData.expectedStatus),
+			apiClient, client2,
 			func(tc *tests.TestContext) {
 				switch tcData.method {
 				case "GET":
-					actions.GetAndExpectStatus(tc, c, tcData.path, tcData.expectedStatus)
+					actions.GetAndExpectStatus(tc, apiClient, tcData.path, tcData.expectedStatus)
 				case "POST":
-					actions.PostAndExpectStatus(tc, c, tcData.path, tcData.body, tcData.expectedStatus)
+					actions.PostAndExpectStatus(tc, apiClient, tcData.path, tcData.body, tcData.expectedStatus)
 				case "DELETE":
-					actions.DeleteAndExpectStatus(tc, c, tcData.path, tcData.expectedStatus)
+					actions.DeleteAndExpectStatus(tc, apiClient, tcData.path, tcData.expectedStatus)
 				default:
 					var dummy map[string]interface{}
-					_ = c.SendHttpRequest(tcData.method, tcData.path, nil, tcData.body, &dummy, nil)
+					_ = apiClient.SendHttpRequest(tcData.method, tcData.path, nil, tcData.body, &dummy, nil)
 				}
 			},
 		)
@@ -333,23 +322,21 @@ var healthTestTmpl = `package {{.PackageName}}
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"{{.ModulePath}}/pkg/api/actions"
-	"{{.ModulePath}}/pkg/client"
 	"{{.ModulePath}}/tests"
 )
 
 // TestAPI_{{sanitize .Group.Tag}}_HealthCheck verifies the service health endpoint.
 func TestAPI_{{sanitize .Group.Tag}}_HealthCheck(t *testing.T) {
-	c := client.NewClient("{{.BaseURL}}", 15*time.Second, tests.ExecutionLogDir)
 {{range .Group.Endpoints}}
-	tests.RunAPITestWithDetails(t, "{{.Method}} {{.Path}} returns healthy status",
+	tests.RunAPITestWithClients(t, "{{.Method}} {{.Path}} returns healthy status",
 		"{{.Description}}",
 		"{{.Summary}} — HTTP {{.SuccessCode}} OK",
+		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp map[string]interface{}
-			actions.GetAndExpectOK(tc, c, "{{.Path}}", &resp)
+			actions.GetAndExpectOK(tc, apiClient, "{{.Path}}", &resp)
 			if status, ok := resp["status"]; ok {
 				actions.AssertNotEmpty(tc, "status", fmt.Sprintf("%v", status))
 			}
