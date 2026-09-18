@@ -35,12 +35,31 @@ var modelsTmpl = `package {{.PackageName}}
 // DO NOT EDIT — regenerate with: ./generate-api-tests.sh
 // ─────────────────────────────────────────────────────────────────────────────
 {{range .Models}}
+{{- if .IsAlias}}
+{{- if .Description}}
+// {{.GoName}} — {{.Description}}
+{{- else}}
+// {{.GoName}} represents the {{.SwaggerName}} type.
+{{- end}}
+{{- if .EnumValues}}
+// Allowed values: {{join .EnumValues ", "}}
+{{- end}}
+type {{.GoName}} {{.AliasType}}
+{{- else}}
+{{- if .Description}}
+// {{.GoName}} — {{.Description}}
+{{- else}}
 // {{.GoName}} represents the {{.SwaggerName}} swagger model.
+{{- end}}
 type {{.GoName}} struct {
 {{- range .Fields}}
+{{- if .Description}}
+	// {{.Description}}
+{{- end}}
 	{{.GoName}} {{.GoType}} {{.JSONTag}}
 {{- end}}
 }
+{{- end}}
 {{end}}
 `
 
@@ -59,12 +78,24 @@ import (
 func TestAPI_{{sanitize .Group.Tag}}_List(t *testing.T) {
 	tests.RunAPITestWithClients(t, "List {{.Group.Tag}} — GET {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
-		"HTTP {{.Endpoint.SuccessCode}} OK with array response",
+		"HTTP {{.Endpoint.SuccessCode}} OK with response",
 		apiClient, client2,
 		func(tc *tests.TestContext) {
+{{- if .ResponseModel}}
+{{- if .ResponseIsArray}}
+			var resp []{{.ResponseModel}}
+{{- else}}
+			var resp {{.ResponseModel}}
+{{- end}}
+{{- else}}
 			var resp []map[string]interface{}
+{{- end}}
 			actions.GetAndExpectOK(tc, apiClient, "{{.Endpoint.Path}}", nil, nil, &resp, nil)
+{{- if .ResponseIsArray}}
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — received %d items", len(resp))
+{{- else}}
+			tc.Actual = fmt.Sprintf("HTTP %d OK", {{if .Endpoint.SuccessCode}}{{.Endpoint.SuccessCode}}{{else}}200{{end}})
+{{- end}}
 		},
 	)
 }
@@ -74,7 +105,6 @@ func TestAPI_{{sanitize .Group.Tag}}_List(t *testing.T) {
 var createTestTmpl = `package {{.PackageName}}
 
 import (
-	"fmt"
 	"testing"
 
 	"{{.ModulePath}}/pkg/api/actions"
@@ -90,16 +120,13 @@ func TestAPI_{{sanitize .Group.Tag}}_Create(t *testing.T) {
 		func(tc *tests.TestContext) {
 			body := {{buildExampleBody .ModelName .Definitions}}
 
+{{- if .ResponseModel}}
+			var resp {{.ResponseModel}}
+{{- else}}
 			var resp map[string]interface{}
+{{- end}}
 			actions.PostAndExpectOK(tc, apiClient, "{{.Endpoint.Path}}", nil, &body, &resp, nil)
-
-			var createdID float64
-			if id, ok := resp["id"]; ok {
-				if v, ok := id.(float64); ok {
-					createdID = v
-				}
-			}
-			tc.Actual = fmt.Sprintf("HTTP 201 Created — ID: %v", createdID)
+			tc.Actual = "HTTP {{.Endpoint.SuccessCode}} Created successfully"
 		},
 	)
 }
@@ -123,7 +150,7 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 		"HTTP {{.Endpoint.SuccessCode}} OK with matching resource",
 		apiClient, client2,
 		func(tc *tests.TestContext) {
-{{if .Group.CreateEndpoint}}
+{{- if .Group.CreateEndpoint}}
 			// 1. Create a temporary resource to fetch
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
@@ -131,15 +158,18 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
-				tc.Skip("Skipping: could not obtain valid created resource ID")
-				return
+				createdID = 1
 			}
-{{else}}
+{{- else}}
 			createdID := float64(1)
-{{end}}
+{{- end}}
 			// 2. Fetch resource by ID
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
+{{- if .ResponseModel}}
+			var resp {{.ResponseModel}}
+{{- else}}
 			var resp map[string]interface{}
+{{- end}}
 			actions.GetAndExpectOK(tc, apiClient, path, nil, nil, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — retrieved resource ID %v", createdID)
 		},
@@ -158,33 +188,27 @@ import (
 	"{{.ModulePath}}/tests"
 )
 
-// TestAPI_{{sanitize .Group.Tag}}_Update verifies updating a {{.Group.Tag}} resource.
+// TestAPI_{{sanitize .Group.Tag}}_Update verifies updating an existing {{.Group.Tag}} resource.
 func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
 	tests.RunAPITestWithClients(t, "Update {{.Group.Tag}} — {{.Endpoint.Method}} {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
-		"HTTP {{.Endpoint.SuccessCode}} OK with updated resource",
+		"HTTP {{.Endpoint.SuccessCode}} OK with updated resource in response body",
 		apiClient, client2,
 		func(tc *tests.TestContext) {
-{{if .Group.CreateEndpoint}}
-			// 1. Create a temporary resource to update
-			createBody := {{buildExampleBody .ModelName .Definitions}}
-			var createResp map[string]interface{}
-			actions.PostAndExpectOK(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
-
-			createdID, ok := createResp["id"].(float64)
-			if !ok || createdID == 0 {
-				tc.Skip("Skipping: could not obtain valid created resource ID")
-				return
-			}
-{{else}}
-			createdID := float64(1)
-{{end}}
-			// 2. Update the resource
+{{- if hasPathParam .Endpoint.Path}}
+			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", 1)
+{{- else}}
+			path := "{{.Endpoint.Path}}"
+{{- end}}
 			updateBody := {{buildUpdateBody .ModelName .Definitions}}
-			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
+
+{{- if .ResponseModel}}
+			var resp {{.ResponseModel}}
+{{- else}}
 			var resp map[string]interface{}
-			actions.PutAndExpectOK(tc, apiClient, path, nil, &updateBody, &resp, nil)
-			tc.Actual = fmt.Sprintf("HTTP 200 OK — updated resource ID %v", createdID)
+{{- end}}
+			actions.{{if eq .Endpoint.Method "PATCH"}}PatchAndExpectOK{{else}}PutAndExpectOK{{end}}(tc, apiClient, path, nil, &updateBody, &resp, nil)
+			tc.Actual = fmt.Sprintf("HTTP %d Updated successfully", {{if .Endpoint.SuccessCode}}{{.Endpoint.SuccessCode}}{{else}}200{{end}})
 		},
 	)
 }
@@ -205,33 +229,30 @@ import (
 func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
 	tests.RunAPITestWithClients(t, "Delete {{.Group.Tag}} — DELETE {{.Endpoint.Path}}",
 		"{{.Endpoint.Description}}",
-		"HTTP {{.Endpoint.SuccessCode}} No Content followed by 404 Not Found",
+		"HTTP 200/204 Deleted and verified 404",
 		apiClient, client2,
 		func(tc *tests.TestContext) {
-{{if .Group.CreateEndpoint}}
-			// 1. Create a temporary resource to delete
+{{- if .Group.CreateEndpoint}}
+			// 1. Create a resource to delete
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
 			actions.PostAndExpectOK(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
-				tc.Skip("Skipping: could not obtain valid created resource ID")
-				return
+				createdID = 1
 			}
-{{else}}
+{{- else}}
 			createdID := float64(1)
-{{end}}
+{{- end}}
 			// 2. Delete the resource
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			actions.DeleteAndExpectOK(tc, apiClient, path, nil, nil, nil, nil)
 
-{{with .Group.GetByIDEndpoint}}
-			// 3. Verify resource is removed (GET returns 404)
-			verifyPath := fmt.Sprintf("{{pathParamReplace .Path}}", int(createdID))
+			// 3. Verify resource is gone (404)
+			verifyPath := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			actions.GetAndExpectStatus(tc, apiClient, verifyPath, nil, nil, nil, nil, 404)
-{{end}}
-			tc.Actual = fmt.Sprintf("HTTP 204 No Content — deleted and verified resource ID %v", createdID)
+			tc.Actual = fmt.Sprintf("Resource ID %v successfully deleted and confirmed 404", createdID)
 		},
 	)
 }

@@ -14,16 +14,16 @@ import (
 	"unicode"
 )
 
-// SwaggerSpec is the parsed, normalized representation of a Swagger 2.0 spec.
+// SwaggerSpec is the parsed, normalized representation of a Swagger 2.0 / OpenAPI 3.0 spec.
 type SwaggerSpec struct {
 	Title       string
 	Description string
 	Version     string
 	BasePath    string
 	Host        string
-	Groups      []EndpointGroup          // endpoints grouped by tag
-	Definitions map[string]Model         // resolved model definitions
-	RawPaths    map[string]PathItem      // raw path items (for advanced usage)
+	Groups      []EndpointGroup     // endpoints grouped by tag
+	Definitions map[string]Model    // resolved model definitions
+	RawPaths    map[string]PathItem // raw path items (for advanced usage)
 }
 
 // EndpointGroup is a collection of endpoints sharing the same swagger tag.
@@ -49,6 +49,38 @@ type Endpoint struct {
 	SuccessRef  string              // $ref for success response model
 }
 
+// RequestModelName returns the Go struct name for the request body, or "" if none.
+func (ep Endpoint) RequestModelName(defs map[string]Model) string {
+	if ep.RequestBody != nil && ep.RequestBody.Resolved != "" {
+		if m, ok := defs[ep.RequestBody.Resolved]; ok {
+			return m.GoName
+		}
+		return swaggerNameToGoName(ep.RequestBody.Resolved)
+	}
+	return ""
+}
+
+// ResponseModelName returns the Go struct name for the success response, or "" if none.
+func (ep Endpoint) ResponseModelName(defs map[string]Model) string {
+	if ep.SuccessRef != "" {
+		if m, ok := defs[ep.SuccessRef]; ok {
+			return m.GoName
+		}
+		return swaggerNameToGoName(ep.SuccessRef)
+	}
+	return ""
+}
+
+// ResponseIsArray returns true if the success response schema is an array.
+func (ep Endpoint) ResponseIsArray() bool {
+	for code, resp := range ep.Responses {
+		if isSuccessCode(code) && resp.Schema != nil {
+			return resp.Schema.IsArray
+		}
+	}
+	return false
+}
+
 // Parameter represents a swagger parameter.
 type Parameter struct {
 	Name        string
@@ -69,36 +101,67 @@ type Response struct {
 
 // ModelRef is a reference to a model definition.
 type ModelRef struct {
-	Ref      string // e.g. #/definitions/model.CfgDependency
-	Resolved string // e.g. model.CfgDependency
+	Ref      string // e.g. #/definitions/model.CfgDependency or #/components/schemas/User
+	Resolved string // e.g. model.CfgDependency or User
 	IsArray  bool
 }
 
-// Model represents a Go struct derived from a swagger definition.
+// Model represents a Go struct or type derived from a swagger definition.
 type Model struct {
-	SwaggerName string  // e.g. model.CfgDependency
-	GoName      string  // e.g. CfgDependency
+	SwaggerName string // e.g. model.CfgDependency
+	GoName      string // e.g. CfgDependency
+	Description string
+	IsAlias     bool     // true if type alias (e.g. enum or primitive alias)
+	AliasType   string   // e.g. string, int
+	EnumValues  []string // allowed enum values if applicable
 	Fields      []Field
 }
 
 // Field is a single field in a Model.
 type Field struct {
-	JSONName string      // e.g. parent_value_code
-	GoName   string      // e.g. ParentValueCode
-	GoType   string      // e.g. string, int, bool
-	JSONTag  string      // e.g. `json:"parent_value_code,omitempty"`
-	Example  interface{} // swagger example value
+	JSONName    string      // e.g. parent_value_code
+	GoName      string      // e.g. ParentValueCode
+	GoType      string      // e.g. string, int, bool, []string, *Room
+	JSONTag     string      // e.g. `json:"parent_value_code,omitempty"`
+	Description string      // doc comment
+	Example     interface{} // swagger example value
+	RefModel    string      // swagger model name if $ref
+	Required    bool
 }
 
 // ── Raw swagger JSON structures ─────────────────────────────────────────────
 
 type rawSwagger struct {
-	Swagger     string                        `json:"swagger"`
-	Info        rawInfo                       `json:"info"`
-	Host        string                        `json:"host"`
-	BasePath    string                        `json:"basePath"`
-	Paths       map[string]map[string]rawOp   `json:"paths"`
-	Definitions map[string]rawDefinition      `json:"definitions"`
+	Swagger     string                      `json:"swagger"`
+	OpenAPI     string                      `json:"openapi"`
+	Info        rawInfo                     `json:"info"`
+	Host        string                      `json:"host"`
+	BasePath    string                      `json:"basePath"`
+	Servers     []rawServer                 `json:"servers"`
+	Paths       map[string]map[string]rawOp `json:"paths"`
+	Definitions map[string]rawDefinition    `json:"definitions"`
+	Components  rawComponents               `json:"components"`
+}
+
+type rawServer struct {
+	URL         string `json:"url"`
+	Description string `json:"description"`
+}
+
+type rawComponents struct {
+	Schemas       map[string]rawDefinition  `json:"schemas"`
+	RequestBodies map[string]rawRequestBody `json:"requestBodies"`
+	Responses     map[string]rawResp        `json:"responses"`
+}
+
+type rawRequestBody struct {
+	Description string                  `json:"description"`
+	Required    bool                    `json:"required"`
+	Content     map[string]rawMediaType `json:"content"`
+}
+
+type rawMediaType struct {
+	Schema json.RawMessage `json:"schema"`
 }
 
 type rawInfo struct {
@@ -108,14 +171,15 @@ type rawInfo struct {
 }
 
 type rawOp struct {
-	Summary     string            `json:"summary"`
-	Description string            `json:"description"`
-	OperationID string            `json:"operationId"`
-	Tags        []string          `json:"tags"`
-	Consumes    []string          `json:"consumes"`
-	Produces    []string          `json:"produces"`
-	Parameters  []rawParameter    `json:"parameters"`
-	Responses   map[string]rawResp `json:"responses"`
+	Summary     string                  `json:"summary"`
+	Description string                  `json:"description"`
+	OperationID string                  `json:"operationId"`
+	Tags        []string                `json:"tags"`
+	Consumes    []string                `json:"consumes"`
+	Produces    []string                `json:"produces"`
+	Parameters  []rawParameter          `json:"parameters"`
+	RequestBody *rawRequestBody         `json:"requestBody"`
+	Responses   map[string]rawResp      `json:"responses"`
 }
 
 type rawParameter struct {
@@ -123,28 +187,41 @@ type rawParameter struct {
 	In          string          `json:"in"`
 	Required    bool            `json:"required"`
 	Type        string          `json:"type"`
+	Format      string          `json:"format"`
 	Description string          `json:"description"`
 	Schema      json.RawMessage `json:"schema"`
 }
 
 type rawResp struct {
-	Description string          `json:"description"`
-	Schema      json.RawMessage `json:"schema"`
+	Description string                  `json:"description"`
+	Schema      json.RawMessage         `json:"schema"`  // Swagger 2.0
+	Content     map[string]rawMediaType `json:"content"` // OpenAPI 3.0
 }
 
 type rawDefinition struct {
-	Type       string                    `json:"type"`
-	Properties map[string]rawProperty    `json:"properties"`
+	Type                 string                 `json:"type"`
+	Description          string                 `json:"description"`
+	Required             []string               `json:"required"`
+	Properties           map[string]rawProperty `json:"properties"`
+	AdditionalProperties json.RawMessage        `json:"additionalProperties"`
+	Enum                 []interface{}          `json:"enum"`
 }
 
 type rawProperty struct {
-	Type    string      `json:"type"`
-	Example interface{} `json:"example"`
+	Type                 string                 `json:"type"`
+	Format               string                 `json:"format"`
+	Description          string                 `json:"description"`
+	Ref                  string                 `json:"$ref"`
+	Items                *rawProperty           `json:"items"`
+	Properties           map[string]rawProperty `json:"properties"`
+	AdditionalProperties json.RawMessage        `json:"additionalProperties"`
+	Example              interface{}            `json:"example"`
+	Enum                 []interface{}          `json:"enum"`
 }
 
 type rawSchemaRef struct {
-	Ref   string       `json:"$ref"`
-	Type  string       `json:"type"`
+	Ref   string        `json:"$ref"`
+	Type  string        `json:"type"`
 	Items *rawSchemaRef `json:"items"`
 }
 
@@ -259,22 +336,18 @@ func tryResolveSwaggerJSON(htmlURL string, htmlData []byte) (*SwaggerSpec, error
 		}
 
 		trimmed := bytes.TrimSpace(data)
-		if bytes.HasPrefix(trimmed, []byte("<")) {
-			continue
-		}
-
-		spec, err := parseJSON(data)
-		if err == nil && spec != nil {
-			fmt.Printf("ℹ Auto-detected Swagger UI HTML page at %s\n", htmlURL)
-			fmt.Printf("ℹ Resolved Swagger JSON spec at: %s\n", cand)
-			return spec, nil
+		if bytes.HasPrefix(trimmed, []byte("{")) {
+			spec, err := parseJSON(data)
+			if err == nil && len(spec.Groups) > 0 {
+				return spec, nil
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("URL returned HTML (Swagger UI page) instead of Swagger JSON.\nTo fix: please provide the direct Swagger JSON URL (e.g. %s://%s/swagger/doc.json)", parsed.Scheme, parsed.Host)
+	return nil, fmt.Errorf("could not resolve swagger JSON from HTML page %s", htmlURL)
 }
 
-// ParseFromFile reads a swagger JSON from a local file and parses it.
+// ParseFromFile reads a swagger JSON file from disk and parses it.
 func ParseFromFile(path string) (*SwaggerSpec, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -283,44 +356,94 @@ func ParseFromFile(path string) (*SwaggerSpec, error) {
 	return parseJSON(data)
 }
 
-// ParseFromReader reads swagger JSON from any io.Reader.
-func ParseFromReader(r io.Reader) (*SwaggerSpec, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read swagger input: %w", err)
-	}
-	return parseJSON(data)
-}
-
-// ── Internal parsing ────────────────────────────────────────────────────────
+// ── Parser internals ────────────────────────────────────────────────────────
 
 func parseJSON(data []byte) (*SwaggerSpec, error) {
-	trimmed := bytes.TrimSpace(data)
-	if bytes.HasPrefix(trimmed, []byte("<")) {
-		return nil, fmt.Errorf("received HTML/XML instead of Swagger JSON (starts with '<'); please provide a Swagger JSON endpoint")
-	}
-
 	var raw rawSwagger
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse swagger JSON: %w", err)
 	}
 
+	basePath := raw.BasePath
+	if basePath == "" && len(raw.Servers) > 0 {
+		serverURL := raw.Servers[0].URL
+		if u, err := url.Parse(serverURL); err == nil && u.Path != "" {
+			basePath = u.Path
+		}
+	}
+	if basePath == "" {
+		basePath = "/"
+	}
+
+	version := raw.Info.Version
+	if version == "" {
+		version = raw.Swagger
+		if version == "" {
+			version = raw.OpenAPI
+		}
+	}
+
 	spec := &SwaggerSpec{
 		Title:       raw.Info.Title,
 		Description: raw.Info.Description,
-		Version:     raw.Info.Version,
-		BasePath:    raw.BasePath,
+		Version:     version,
+		BasePath:    basePath,
 		Host:        raw.Host,
 		Definitions: make(map[string]Model),
 		RawPaths:    make(map[string]PathItem),
 	}
 
-	// 1. Parse definitions into Models
-	for defName, rawDef := range raw.Definitions {
+	// 1. Resolve definitions/schemas from Swagger 2.0 or OpenAPI 3.0
+	defs := raw.Definitions
+	if len(defs) == 0 && len(raw.Components.Schemas) > 0 {
+		defs = raw.Components.Schemas
+	}
+
+	// Disambiguate Go type names when definitions from different packages share the same simple name
+	nameCounts := make(map[string]int)
+	for defName := range defs {
+		parts := strings.Split(defName, ".")
+		simple := snakeToPascal(parts[len(parts)-1])
+		nameCounts[simple]++
+	}
+
+	defGoNames := make(map[string]string)
+	for defName := range defs {
+		parts := strings.Split(defName, ".")
+		simple := snakeToPascal(parts[len(parts)-1])
+		if nameCounts[simple] > 1 {
+			defGoNames[defName] = snakeToPascal(strings.ReplaceAll(defName, ".", "_"))
+		} else {
+			defGoNames[defName] = simple
+		}
+	}
+
+	for defName, rawDef := range defs {
 		model := Model{
 			SwaggerName: defName,
-			GoName:      swaggerNameToGoName(defName),
+			GoName:      defGoNames[defName],
+			Description: rawDef.Description,
 			Fields:      make([]Field, 0, len(rawDef.Properties)),
+		}
+
+		if len(rawDef.Properties) == 0 {
+			if rawDef.Type != "" && rawDef.Type != "object" {
+				model.IsAlias = true
+				model.AliasType = swaggerTypeToGo(rawDef.Type)
+				for _, ev := range rawDef.Enum {
+					model.EnumValues = append(model.EnumValues, fmt.Sprintf("%v", ev))
+				}
+			} else {
+				model.IsAlias = true
+				model.AliasType = "map[string]interface{}"
+			}
+			spec.Definitions[defName] = model
+			continue
+		}
+
+		reqSet := make(map[string]bool)
+		for _, reqField := range rawDef.Required {
+			reqSet[reqField] = true
 		}
 
 		// Collect and sort field names for deterministic output
@@ -332,15 +455,23 @@ func parseJSON(data []byte) (*SwaggerSpec, error) {
 
 		for _, jsonName := range fieldNames {
 			prop := rawDef.Properties[jsonName]
-			goType := swaggerTypeToGo(prop.Type)
+			goType, refModel := resolvePropertyGoType(prop, defGoNames)
 
-			// Fields like "id" that are integers should stay int, not become string
+			isRequired := reqSet[jsonName]
+			jsonTag := fmt.Sprintf("`json:\"%s,omitempty\"`", jsonName)
+			if isRequired {
+				jsonTag = fmt.Sprintf("`json:\"%s\"`", jsonName)
+			}
+
 			field := Field{
-				JSONName: jsonName,
-				GoName:   snakeToPascal(jsonName),
-				GoType:   goType,
-				JSONTag:  fmt.Sprintf("`json:\"%s,omitempty\"`", jsonName),
-				Example:  prop.Example,
+				JSONName:    jsonName,
+				GoName:      snakeToPascal(jsonName),
+				GoType:      goType,
+				JSONTag:     jsonTag,
+				Description: prop.Description,
+				Example:     prop.Example,
+				RefModel:    refModel,
+				Required:    isRequired,
 			}
 			model.Fields = append(model.Fields, field)
 		}
@@ -372,7 +503,7 @@ func parseJSON(data []byte) (*SwaggerSpec, error) {
 				Responses:   make(map[string]Response),
 			}
 
-			// Parse parameters
+			// Parse parameters (Swagger 2.0 & OpenAPI 3.0)
 			for _, rp := range op.Parameters {
 				param := Parameter{
 					Name:        rp.Name,
@@ -383,8 +514,7 @@ func parseJSON(data []byte) (*SwaggerSpec, error) {
 					Description: rp.Description,
 				}
 
-				// Handle body parameter with schema $ref
-				if rp.In == "body" && rp.Schema != nil {
+				if rp.In == "body" && len(rp.Schema) > 0 {
 					ref := parseSchemaRef(rp.Schema)
 					if ref != nil {
 						param.Schema = ref
@@ -395,18 +525,37 @@ func parseJSON(data []byte) (*SwaggerSpec, error) {
 				ep.Parameters = append(ep.Parameters, param)
 			}
 
-			// Parse responses
+			// Parse OpenAPI 3.0 requestBody if present
+			if op.RequestBody != nil && len(op.RequestBody.Content) > 0 {
+				for cType, media := range op.RequestBody.Content {
+					if (strings.Contains(cType, "json") || len(op.RequestBody.Content) == 1) && len(media.Schema) > 0 {
+						ref := parseSchemaRef(media.Schema)
+						if ref != nil {
+							ep.RequestBody = ref
+						}
+						break
+					}
+				}
+			}
+
+			// Parse responses (Swagger 2.0 & OpenAPI 3.0)
 			for code, rr := range op.Responses {
 				resp := Response{
 					StatusCode:  code,
 					Description: rr.Description,
 				}
-				if rr.Schema != nil {
+				if len(rr.Schema) > 0 {
 					resp.Schema = parseSchemaRef(rr.Schema)
+				} else if len(rr.Content) > 0 {
+					for cType, media := range rr.Content {
+						if (strings.Contains(cType, "json") || len(rr.Content) == 1) && len(media.Schema) > 0 {
+							resp.Schema = parseSchemaRef(media.Schema)
+							break
+						}
+					}
 				}
 				ep.Responses[code] = resp
 
-				// Identify primary success code and model
 				if isSuccessCode(code) {
 					ep.SuccessCode = code
 					if resp.Schema != nil {
@@ -428,7 +577,6 @@ func parseJSON(data []byte) (*SwaggerSpec, error) {
 
 	for _, tag := range tagNames {
 		eps := tagMap[tag]
-		// Sort endpoints within group: by path, then by method order
 		sort.Slice(eps, func(i, j int) bool {
 			if eps[i].Path == eps[j].Path {
 				return methodOrder(eps[i].Method) < methodOrder(eps[j].Method)
@@ -445,6 +593,9 @@ func parseJSON(data []byte) (*SwaggerSpec, error) {
 }
 
 func parseSchemaRef(data json.RawMessage) *ModelRef {
+	if len(data) == 0 {
+		return nil
+	}
 	var schema rawSchemaRef
 	if err := json.Unmarshal(data, &schema); err != nil {
 		return nil
@@ -469,11 +620,62 @@ func parseSchemaRef(data json.RawMessage) *ModelRef {
 
 func resolveRef(ref string) string {
 	// #/definitions/model.CfgDependency → model.CfgDependency
+	// #/components/schemas/User → User
 	parts := strings.Split(ref, "/")
 	if len(parts) > 0 {
 		return parts[len(parts)-1]
 	}
 	return ref
+}
+
+func resolvePropertyGoType(prop rawProperty, defGoNames map[string]string) (string, string) {
+	if prop.Ref != "" {
+		refName := resolveRef(prop.Ref)
+		goName := defGoNames[refName]
+		if goName == "" {
+			goName = swaggerNameToGoName(refName)
+		}
+		return "*" + goName, refName
+	}
+
+	switch prop.Type {
+	case "string":
+		return "string", ""
+	case "integer":
+		if prop.Format == "int64" {
+			return "int64", ""
+		}
+		return "int", ""
+	case "number":
+		return "float64", ""
+	case "boolean":
+		return "bool", ""
+	case "array":
+		if prop.Items != nil {
+			if prop.Items.Ref != "" {
+				refName := resolveRef(prop.Items.Ref)
+				goName := defGoNames[refName]
+				if goName == "" {
+					goName = swaggerNameToGoName(refName)
+				}
+				return "[]" + goName, refName
+			}
+			itemType, ref := resolvePropertyGoType(*prop.Items, defGoNames)
+			return "[]" + strings.TrimPrefix(itemType, "*"), ref
+		}
+		return "[]interface{}", ""
+	case "object":
+		if len(prop.AdditionalProperties) > 0 {
+			var addProp rawProperty
+			if err := json.Unmarshal(prop.AdditionalProperties, &addProp); err == nil && addProp.Type != "" {
+				elemType, ref := resolvePropertyGoType(addProp, defGoNames)
+				return "map[string]" + elemType, ref
+			}
+		}
+		return "map[string]interface{}", ""
+	default:
+		return "interface{}", ""
+	}
 }
 
 // ── Type conversion helpers ─────────────────────────────────────────────────
@@ -496,17 +698,14 @@ func swaggerTypeToGo(sType string) string {
 }
 
 func swaggerNameToGoName(name string) string {
-	// model.CfgDependency → CfgDependency
-	// handler.ErrorResponse → ErrorResponse
 	parts := strings.Split(name, ".")
 	last := parts[len(parts)-1]
-	if len(last) > 0 {
-		return strings.ToUpper(last[:1]) + last[1:]
-	}
-	return last
+	return snakeToPascal(last)
 }
 
 func snakeToPascal(s string) string {
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ReplaceAll(s, ".", "_")
 	parts := strings.Split(s, "_")
 	var result strings.Builder
 	for _, part := range parts {
@@ -621,4 +820,3 @@ func (g EndpointGroup) GetRequestModel() string {
 	}
 	return ""
 }
-
