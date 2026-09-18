@@ -22,7 +22,7 @@ func TestAPI_Example_01_HealthCheck(t *testing.T) {
 		client2,
 		func(tc *tests.TestContext) {
 			var resp HealthResponse
-			actions.SendHttpRequest(tc, tc.Client, "GET", "/health", nil, nil, &resp, nil)
+			actions.Get(tc, tc.Client, "/health", nil, nil, &resp, nil)
 			actions.AssertNotEmpty(tc, "status", resp.Status)
 		},
 	)

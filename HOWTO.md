@@ -147,19 +147,19 @@ All HTTP helpers in `pkg/api/actions` follow the exact same signature as `client
 ```go
 // 1. HTTP Basic Auth
 auth := &client.BasicAuth{Username: "admin", Password: "secret"}
-actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/profile", nil, nil, &profileResp, auth)
+actions.Get(tc, apiClient, "/api/v1/profile", nil, nil, &profileResp, auth)
 
 // 2. Bearer Token (JWT / OAuth2 / PAT)
 bearer := &client.BearerTokenAuth{Token: loginResp.Token}
-actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/orders", nil, nil, &ordersResp, bearer)
+actions.Get(tc, apiClient, "/api/v1/orders", nil, nil, &ordersResp, bearer)
 
 // 3. HashiCorp Vault Token (X-Vault-Token & optional X-Vault-Namespace)
 vault := &client.VaultTokenAuth{Token: "s.vaultToken123", Namespace: "engineering"}
-actions.SendHttpRequest(tc, apiClient, "GET", "/v1/secret/data/creds", nil, nil, &vaultResp, vault)
+actions.Get(tc, apiClient, "/v1/secret/data/creds", nil, nil, &vaultResp, vault)
 
 // 4. API Key (Header or Query Parameter)
 apiKey := &client.APIKeyAuth{Key: "X-API-Key", Value: "secret-key", In: "header"}
-actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/data", nil, nil, &dataResp, apiKey)
+actions.Get(tc, apiClient, "/api/v1/data", nil, nil, &dataResp, apiKey)
 ```
 
 > 📖 **Full Guide**: For detailed patterns, real-world examples, mTLS, multi-auth chaining, and RBAC boundary testing, refer to the [API Authentication Guide](docs/API_AUTHENTICATION_GUIDE.md).

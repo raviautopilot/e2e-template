@@ -35,7 +35,7 @@ type Authenticator interface {
 }
 ```
 
-When an HTTP request is executed through [`client.Client.SendHttpRequest`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/client/client.go) or the higher-level action helpers ([`actions.SendHttpRequest`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/http_request.go), [`actions.SendHttpRequestAndExpectStatus`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/http_request.go)), the framework:
+When an HTTP request is executed through [`client.Client.SendHttpRequest`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/client/client.go) or any of the higher-level action helpers ([`actions.Get`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/get.go), [`actions.Post`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/post.go), [`actions.Put`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/put.go), [`actions.Patch`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/patch.go), [`actions.Delete`](file:///home/ubuntu/code/github/raviautopilot/templates/e2e-template/pkg/api/actions/delete.go)), the framework:
 
 1. Validates request/response pointers.
 2. Marshals JSON payloads (if present).
@@ -99,7 +99,7 @@ func TestAPI_BasicAuth_Example(t *testing.T) {
 
             // 2. Send authenticated GET
             var profile UserProfileResponse
-            actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/profile", nil, nil, &profile, auth)
+            actions.Get(tc, apiClient, "/api/v1/profile", nil, nil, &profile, auth)
 
             // 3. Assertions
             if profile.Email != tests.GlobalConfig.AdminCredentials.Username {
@@ -180,7 +180,7 @@ func TestAPI_BearerAuth_LoginAndFetch(t *testing.T) {
                 Password: tests.GlobalConfig.AdminCredentials.Password,
             }
             var loginResp LoginResponse
-            actions.SendHttpRequest(tc, apiClient, "POST", "/api/v1/auth/login", nil, &loginBody, &loginResp, nil)
+            actions.Post(tc, apiClient, "/api/v1/auth/login", nil, &loginBody, &loginResp, nil)
 
             tc.AssertNotEmpty(loginResp.AccessToken, "Access token must not be empty")
 
@@ -191,7 +191,7 @@ func TestAPI_BearerAuth_LoginAndFetch(t *testing.T) {
 
             // Step 3: Access protected endpoint
             var orders []OrderResponse
-            actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/orders", nil, nil, &orders, bearerAuth)
+            actions.Get(tc, apiClient, "/api/v1/orders", nil, nil, &orders, bearerAuth)
 
             tc.Actual = "Successfully fetched orders using Bearer JWT"
         },
@@ -204,7 +204,7 @@ If your API uses a long-lived secret token (e.g. GitHub PAT or service account t
 ```go
 token := os.Getenv("GITHUB_TOKEN")
 auth := &client.BearerTokenAuth{Token: token}
-actions.SendHttpRequest(tc, apiClient, "GET", "/user/repos", nil, nil, &repos, auth)
+actions.Get(tc, apiClient, "/user/repos", nil, nil, &repos, auth)
 ```
 
 ---
@@ -286,11 +286,11 @@ func TestAPI_Vault_ReadWriteSecrets(t *testing.T) {
                 },
             }
             var writeResp map[string]interface{}
-            actions.SendHttpRequest(tc, apiClient, "POST", secretPath, nil, &writePayload, &writeResp, vaultAuth)
+            actions.Post(tc, apiClient, secretPath, nil, &writePayload, &writeResp, vaultAuth)
 
             // 3. Read back the secret: GET /v1/secret/data/my-app/config
             var readResp VaultKVReadResponse
-            actions.SendHttpRequest(tc, apiClient, "GET", secretPath, nil, nil, &readResp, vaultAuth)
+            actions.Get(tc, apiClient, secretPath, nil, nil, &readResp, vaultAuth)
 
             // 4. Assertions
             tc.AssertEqual(readResp.Data.Data["db_user"], "postgres_admin", "db_user match")
@@ -318,7 +318,7 @@ type AppRoleLoginResponse struct {
 
 // 1. Exchange RoleID + SecretID for a token
 var loginResp AppRoleLoginResponse
-actions.SendHttpRequest(tc, apiClient, "POST", "/v1/auth/approle/login", nil, &appRoleReq, &loginResp, nil)
+actions.Post(tc, apiClient, "/v1/auth/approle/login", nil, &appRoleReq, &loginResp, nil)
 
 // 2. Use the client_token with VaultTokenAuth
 vaultAuth := &client.VaultTokenAuth{Token: loginResp.Auth.ClientToken}
@@ -341,7 +341,7 @@ auth := &client.APIKeyAuth{
     Value: "live_sk_99a8b7c6d5e4",
     In:    "header", // Injects into http.Header
 }
-actions.SendHttpRequest(tc, apiClient, "GET", "/v1/data", nil, nil, &resp, auth)
+actions.Get(tc, apiClient, "/v1/data", nil, nil, &resp, auth)
 ```
 
 ### 6.2 Query-Parameter-Based API Key
@@ -356,7 +356,7 @@ auth := &client.APIKeyAuth{
     Value: "AIzaSyD-ExampleKey",
     In:    "query", // Appends to req.URL.RawQuery
 }
-actions.SendHttpRequest(tc, apiClient, "GET", "/maps/api/geocode/json?address=Paris", nil, nil, &resp, auth)
+actions.Get(tc, apiClient, "/maps/api/geocode/json?address=Paris", nil, nil, &resp, auth)
 ```
 
 ---
@@ -374,7 +374,7 @@ auth := &client.CustomHeaderAuth{
         "X-Correlation-ID": "corr-uuid-4",
     },
 }
-actions.SendHttpRequest(tc, apiClient, "GET", "/api/v1/tenant/settings", nil, nil, &settings, auth)
+actions.Get(tc, apiClient, "/api/v1/tenant/settings", nil, nil, &settings, auth)
 ```
 
 ### 7.2 Cookie-Based Authentication
@@ -386,7 +386,7 @@ auth := &client.CustomHeaderAuth{
         "X-CSRF-Token": "csrf_token_secret_val",
     },
 }
-actions.SendHttpRequest(tc, apiClient, "POST", "/api/v1/account/update", nil, &updateReq, &resp, auth)
+actions.Post(tc, apiClient, "/api/v1/account/update", nil, &updateReq, &resp, auth)
 ```
 
 ---
@@ -418,7 +418,7 @@ if err != nil {
     tc.Fatalf("Failed to load mTLS client certificate: %v", err)
 }
 
-actions.SendHttpRequest(tc, apiClient, "GET", "/secure/transfers", nil, nil, &transfers, certAuth)
+actions.Get(tc, apiClient, "/secure/transfers", nil, nil, &transfers, certAuth)
 ```
 *Note: `client.Client.SendHttpRequest` automatically injects the certificate into the underlying HTTP Transport's `tls.Config.Certificates`.*
 
@@ -447,7 +447,7 @@ multiAuth := &client.MultiAuth{
     },
 }
 
-actions.SendHttpRequest(tc, apiClient, "GET", "/api/v2/secure-gateway/data", nil, nil, &response, multiAuth)
+actions.Get(tc, apiClient, "/api/v2/secure-gateway/data", nil, nil, &response, multiAuth)
 ```
 
 ---
@@ -514,7 +514,7 @@ func TestAPI_RBAC_Boundary_AdminVsMember(t *testing.T) {
 
             // 1. Admin should succeed (200 OK)
             var logs []map[string]interface{}
-            actions.SendHttpRequest(tc, apiClient, "GET", adminPath, nil, nil, &logs, adminAuth)
+            actions.Get(tc, apiClient, adminPath, nil, nil, &logs, adminAuth)
 
             // 2. Member should fail with 403 Forbidden
             var dummy map[string]interface{}
@@ -545,29 +545,23 @@ func TestAPI_RBAC_Boundary_AdminVsMember(t *testing.T) {
 
 ### Action Helpers Quick Invocation (Unified Signature)
 
-All API calls use two functions from `pkg/api/actions`:
+Every HTTP verb has three helpers in `pkg/api/actions` with the same signature `(tc, c, path, headers, reqBody, respBody, auth)`:
 
 ```go
 // Expects HTTP 2xx — fails the test on error
-actions.SendHttpRequest(tc, apiClient, method, path, headers, reqBody, respBody, auth)
+actions.Get(tc, apiClient, "/path", headers, nil, &respStruct, auth)
+actions.Post(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+actions.Put(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+actions.Patch(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+actions.Delete(tc, apiClient, "/path", headers, nil, &respStruct, auth)
+actions.Head(tc, apiClient, "/path", headers, nil, nil, auth)
+actions.Options(tc, apiClient, "/path", headers, nil, &respStruct, auth)
 
-// Asserts a specific status code — fails the test on mismatch
-actions.SendHttpRequestAndExpectStatus(tc, apiClient, method, path, headers, reqBody, respBody, auth, wantStatus)
+// *AndExpectOK — alias for the above (same behavior)
+actions.GetAndExpectOK(tc, apiClient, "/path", headers, nil, &respStruct, auth)
+
+// *AndExpectStatus — asserts specific status code (extra wantStatus arg)
+actions.GetAndExpectStatus(tc, apiClient, "/path", headers, nil, nil, auth, 404)
+actions.PostAndExpectStatus(tc, apiClient, "/path", headers, &reqStruct, nil, auth, 400)
+actions.DeleteAndExpectStatus(tc, apiClient, "/path", headers, nil, nil, auth, 204)
 ```
-
-Examples:
-
-```go
-// GET
-actions.SendHttpRequest(tc, apiClient, "GET", "/path", headers, nil, &respStruct, auth)
-
-// POST
-actions.SendHttpRequest(tc, apiClient, "POST", "/path", headers, &reqStruct, &respStruct, auth)
-
-// Expect 404
-actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", "/path", headers, nil, nil, auth, 404)
-
-// Expect 204 on DELETE
-actions.SendHttpRequestAndExpectStatus(tc, apiClient, "DELETE", "/path", headers, nil, nil, auth, 204)
-```
-

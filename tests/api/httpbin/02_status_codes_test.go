@@ -14,9 +14,9 @@ func TestAPI_HttpBin_02_StatusCodes(t *testing.T) {
 		"HTTP 200, 404, and 500 status codes returned respectively",
 		apiClient, client2,
 		func(tc *tests.TestContext) {
-			actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", "/status/200", nil, nil, nil, nil, 200)
-			actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", "/status/404", nil, nil, nil, nil, 404)
-			actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", "/status/500", nil, nil, nil, nil, 500)
+			actions.GetAndExpectStatus(tc, apiClient, "/status/200", nil, nil, nil, nil, 200)
+			actions.GetAndExpectStatus(tc, apiClient, "/status/404", nil, nil, nil, nil, 404)
+			actions.GetAndExpectStatus(tc, apiClient, "/status/500", nil, nil, nil, nil, 500)
 		},
 	)
 }

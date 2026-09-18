@@ -25,7 +25,7 @@ func TestAPI_HttpBin_03_PostJSON(t *testing.T) {
 				"purpose":   "testing",
 			}
 			var resp httpbinPostResponse
-			actions.SendHttpRequest(tc, apiClient, "POST", "/post", nil, &payload, &resp, nil)
+			actions.Post(tc, apiClient, "/post", nil, &payload, &resp, nil)
 			actions.AssertEquals(tc, "framework", resp.JSON["framework"], "go-e2e")
 			actions.AssertEquals(tc, "purpose", resp.JSON["purpose"], "testing")
 		},

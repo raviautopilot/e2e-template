@@ -22,7 +22,7 @@ func TestAPI_JSONPlaceholder_03_Users(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var users []jsonPlaceholderUser
-			actions.SendHttpRequest(tc, apiClient, "GET", "/users", nil, nil, &users, nil)
+			actions.Get(tc, apiClient, "/users", nil, nil, &users, nil)
 			actions.AssertListLength(tc, "users", len(users), 10)
 			actions.AssertNotEmpty(tc, "username", users[0].Username)
 		},

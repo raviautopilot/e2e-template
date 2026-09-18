@@ -7,8 +7,9 @@ import (
 	"e2e-template/tests"
 )
 
-// SendHttpRequest executes an HTTP request with the standard SendHttpRequest signature and expects HTTP 2xx success.
-func SendHttpRequest(tc *tests.TestContext, c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) {
+// sendHttpRequest executes an HTTP request and expects HTTP 2xx success.
+// This is the internal engine — callers should use the verb-specific helpers (Get, Post, Put, etc.).
+func sendHttpRequest(tc *tests.TestContext, c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) {
 	err := c.SendHttpRequest(method, path, headers, reqBody, respBody, auth)
 	if err != nil {
 		tc.FailureReason = fmt.Sprintf("%s %s failed: %v", method, path, err)
@@ -17,8 +18,9 @@ func SendHttpRequest(tc *tests.TestContext, c *client.Client, method string, pat
 	tc.Actual = fmt.Sprintf("HTTP 2xx OK for %s %s", method, path)
 }
 
-// SendHttpRequestAndExpectStatus executes an HTTP request and asserts the returned status code matches wantStatus.
-func SendHttpRequestAndExpectStatus(tc *tests.TestContext, c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
+// sendHttpRequestAndExpectStatus executes an HTTP request and asserts the returned status code matches wantStatus.
+// This is the internal engine — callers should use the verb-specific helpers (GetAndExpectStatus, PostAndExpectStatus, etc.).
+func sendHttpRequestAndExpectStatus(tc *tests.TestContext, c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
 	err := c.SendHttpRequest(method, path, headers, reqBody, respBody, auth)
 	if wantStatus >= 200 && wantStatus < 300 {
 		if err != nil {

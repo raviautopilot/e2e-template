@@ -123,9 +123,9 @@ func TestAPI_01_AdminLogin_Parameterized(t *testing.T) {
 					var resp LoginResponse
 
 					if sc.ExpectSuccess {
-						actions.SendHttpRequest(tc, apiClient, "POST", "/api/v1/auth/login", nil, &req, &resp, nil)
+						actions.Post(tc, apiClient, "/api/v1/auth/login", nil, &req, &resp, nil)
 					} else {
-						actions.SendHttpRequestAndExpectStatus(tc, apiClient, "POST", "/api/v1/auth/login", nil, &req, nil, nil, sc.WantStatusCode)
+						actions.PostAndExpectStatus(tc, apiClient, "/api/v1/auth/login", nil, &req, nil, nil, sc.WantStatusCode)
 					}
 				},
 			)

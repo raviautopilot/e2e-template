@@ -21,10 +21,10 @@ func TestAPI_GitHub_02_Repo(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var repo githubRepo
-			actions.SendHttpRequest(tc, apiClient, "GET", "/repos/octocat/Hello-World", githubHeaders, nil, &repo, nil)
+			actions.Get(tc, apiClient, "/repos/octocat/Hello-World", githubHeaders, nil, &repo, nil)
 			actions.AssertEquals(tc, "full_name", repo.FullName, "octocat/Hello-World")
 
-			actions.SendHttpRequestAndExpectStatus(tc, apiClient, "GET", "/repos/nonexistent-org-xyz/nonexistent-repo-abc", githubHeaders, nil, nil, nil, 404)
+			actions.GetAndExpectStatus(tc, apiClient, "/repos/nonexistent-org-xyz/nonexistent-repo-abc", githubHeaders, nil, nil, nil, 404)
 		},
 	)
 }
