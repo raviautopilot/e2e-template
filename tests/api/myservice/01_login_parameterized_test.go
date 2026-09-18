@@ -3,10 +3,8 @@ package myservice_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"e2e-template/pkg/api/actions"
-	"e2e-template/pkg/client"
 	"e2e-template/tests"
 )
 
@@ -23,11 +21,8 @@ type LoginTestCase struct {
 // TestAPI_01_AdminLogin_Parameterized runs high-level parameterized login scenarios against the backend API.
 // Reads target host and credentials dynamically from config.json or environment variables (E2E_BASE_URL, E2E_ADMIN_USERNAME, E2E_ADMIN_PASSWORD).
 func TestAPI_01_AdminLogin_Parameterized(t *testing.T) {
-	baseURL := tests.GlobalConfig.BaseURL
 	adminEmail := tests.GlobalConfig.AdminCredentials.Username
 	adminPassword := tests.GlobalConfig.AdminCredentials.Password
-
-	apiClient := client.NewClient(baseURL, 15*time.Second, tests.ExecutionLogDir)
 
 	scenarios := []LoginTestCase{
 		{
@@ -112,15 +107,15 @@ func TestAPI_01_AdminLogin_Parameterized(t *testing.T) {
 				expectedText = "HTTP 200 OK with valid Auth Token / User Session"
 			}
 
-			tests.RunAPITestWithDetails(
+			testName := fmt.Sprintf("Admin Login - %s", sc.Name)
+			tests.RunAPITestWithClients(
 				t,
-				fmt.Sprintf("Admin Login - %s", sc.Name),
+				testName,
 				sc.Description,
 				expectedText,
+				apiClient,
+				client2,
 				func(tc *tests.TestContext) {
-					testName := fmt.Sprintf("Admin Login - %s", sc.Name)
-					apiClient.SetTestName(testName)
-					tc.Client = apiClient
 					req := LoginRequest{
 						Email:    sc.Email,
 						Password: sc.Password,

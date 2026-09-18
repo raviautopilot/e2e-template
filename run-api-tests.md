@@ -122,19 +122,20 @@ import (
     "e2e-template/tests"
 )
 
-func TestMyAPI(t *testing.T) {
-    tests.RunAPITest(t, "My Endpoint Test", func(t *testing.T, tc *tests.TestContext) {
-        c := client.NewClient("https://api.example.com", 10*time.Second, tests.ExecutionLogDir)
+// In main_test.go:
+// var apiClient, client2 = tests.NewServiceClients("https://api.example.com")
 
+func TestMyAPI(t *testing.T) {
+    tests.RunAPITestWithClients(t, "My Endpoint Test", "Tests /items endpoints", "HTTP 200 OK and 201 Created", apiClient, client2, func(tc *tests.TestContext) {
         // GET and expect 200 OK
         var resp MyResponseType
-        actions.GetAndExpectOK(tc, c, "/items", &resp)
+        actions.GetAndExpectOK(tc, tc.Client, "/items", &resp)
         actions.AssertNotEmpty(tc, "Items", resp.Items)
 
         // POST and expect 201 Created
         body := map[string]string{"name": "test"}
         var created MyResponseType
-        actions.PostAndExpectCreated(tc, c, "/items", body, &created)
+        actions.PostAndExpectCreated(tc, tc.Client, "/items", body, &created)
         actions.AssertEquals(tc, "Name", created.Name, "test")
     })
 }

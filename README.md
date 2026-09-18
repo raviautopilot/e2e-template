@@ -170,12 +170,13 @@ A ready-to-use, modular End-to-End (E2E) testing framework built in Go. It suppo
 Use the pre-built helpers in `pkg/api/actions/`:
 
 ```go
-func TestAPI_GetUser(t *testing.T) {
-    tests.RunAPITest(t, "GET /users/1 returns a valid user", func(t *testing.T, tc *tests.TestContext) {
-        c := client.NewClient("https://jsonplaceholder.typicode.com", 10*time.Second, tests.ExecutionLogDir)
+// In main_test.go:
+// var apiClient, client2 = tests.NewServiceClients("https://jsonplaceholder.typicode.com")
 
+func TestAPI_GetUser(t *testing.T) {
+    tests.RunAPITestWithClients(t, "GET /users/1 returns a valid user", "Fetch user profile", "HTTP 200 OK", apiClient, client2, func(tc *tests.TestContext) {
         var user UserResponse
-        actions.GetAndExpectOK(tc, c, "/users/1", &user)
+        actions.GetAndExpectOK(tc, tc.Client, "/users/1", &user)
         actions.AssertNotEmpty(tc, "Username", user.Username)
         actions.AssertEquals(tc, "ID", user.ID, 1)
     })

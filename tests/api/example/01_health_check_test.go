@@ -13,11 +13,13 @@ func TestAPI_Example_01_HealthCheck(t *testing.T) {
 		t.Skipf("Skipping: no server running at %s (set baseUrl in config.json)", tests.GlobalConfig.BaseURL)
 	}
 
-	tests.RunAPITestWithDetails(
+	tests.RunAPITestWithClients(
 		t,
 		"Health Check Endpoint Returns 200 OK",
 		"Verifies that the target application's health endpoint responds with 200 OK.",
 		"HTTP 200 OK with healthy status",
+		apiClient,
+		client2,
 		func(tc *tests.TestContext) {
 			var resp HealthResponse
 			actions.GetAndExpectOK(tc, tc.Client, "/health", &resp)
