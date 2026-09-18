@@ -63,7 +63,7 @@ func TestAPI_{{sanitize .Group.Tag}}_List(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp []map[string]interface{}
-			actions.Get(tc, apiClient, "{{.Endpoint.Path}}", nil, nil, &resp, nil)
+			actions.GetAndExpectOK(tc, apiClient, "{{.Endpoint.Path}}", nil, nil, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — received %d items", len(resp))
 		},
 	)
@@ -91,7 +91,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Create(t *testing.T) {
 			body := {{buildExampleBody .ModelName .Definitions}}
 
 			var resp map[string]interface{}
-			actions.Post(tc, apiClient, "{{.Endpoint.Path}}", nil, &body, &resp, nil)
+			actions.PostAndExpectOK(tc, apiClient, "{{.Endpoint.Path}}", nil, &body, &resp, nil)
 
 			var createdID float64
 			if id, ok := resp["id"]; ok {
@@ -127,7 +127,7 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 			// 1. Create a temporary resource to fetch
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.Post(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
+			actions.PostAndExpectOK(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -140,7 +140,7 @@ func TestAPI_{{sanitize .Group.Tag}}_GetByID(t *testing.T) {
 			// 2. Fetch resource by ID
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			var resp map[string]interface{}
-			actions.Get(tc, apiClient, path, nil, nil, &resp, nil)
+			actions.GetAndExpectOK(tc, apiClient, path, nil, nil, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — retrieved resource ID %v", createdID)
 		},
 	)
@@ -169,7 +169,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
 			// 1. Create a temporary resource to update
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.Post(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
+			actions.PostAndExpectOK(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -183,7 +183,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Update(t *testing.T) {
 			updateBody := {{buildUpdateBody .ModelName .Definitions}}
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
 			var resp map[string]interface{}
-			actions.Put(tc, apiClient, path, nil, &updateBody, &resp, nil)
+			actions.PutAndExpectOK(tc, apiClient, path, nil, &updateBody, &resp, nil)
 			tc.Actual = fmt.Sprintf("HTTP 200 OK — updated resource ID %v", createdID)
 		},
 	)
@@ -212,7 +212,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
 			// 1. Create a temporary resource to delete
 			createBody := {{buildExampleBody .ModelName .Definitions}}
 			var createResp map[string]interface{}
-			actions.Post(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
+			actions.PostAndExpectOK(tc, apiClient, "{{.Group.CreateEndpoint.Path}}", nil, &createBody, &createResp, nil)
 
 			createdID, ok := createResp["id"].(float64)
 			if !ok || createdID == 0 {
@@ -224,7 +224,7 @@ func TestAPI_{{sanitize .Group.Tag}}_Delete(t *testing.T) {
 {{end}}
 			// 2. Delete the resource
 			path := fmt.Sprintf("{{pathParamReplace .Endpoint.Path}}", int(createdID))
-			actions.Delete(tc, apiClient, path, nil, nil, nil, nil)
+			actions.DeleteAndExpectOK(tc, apiClient, path, nil, nil, nil, nil)
 
 {{with .Group.GetByIDEndpoint}}
 			// 3. Verify resource is removed (GET returns 404)
@@ -336,7 +336,7 @@ func TestAPI_{{sanitize .Group.Tag}}_HealthCheck(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var resp map[string]interface{}
-			actions.Get(tc, apiClient, "{{.Path}}", nil, nil, &resp, nil)
+			actions.GetAndExpectOK(tc, apiClient, "{{.Path}}", nil, nil, &resp, nil)
 			if status, ok := resp["status"]; ok {
 				actions.AssertNotEmpty(tc, "status", fmt.Sprintf("%v", status))
 			}

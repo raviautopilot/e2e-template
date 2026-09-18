@@ -22,11 +22,11 @@ func TestAPI_JSONPlaceholder_01_Posts(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var posts []jsonPlaceholderPost
-			actions.Get(tc, apiClient, "/posts", nil, nil, &posts, nil)
+			actions.GetAndExpectOK(tc, apiClient, "/posts", nil, nil, &posts, nil)
 			actions.AssertListLength(tc, "posts", len(posts), 100)
 
 			var post jsonPlaceholderPost
-			actions.Get(tc, apiClient, "/posts/1", nil, nil, &post, nil)
+			actions.GetAndExpectOK(tc, apiClient, "/posts/1", nil, nil, &post, nil)
 			actions.AssertIntEquals(tc, "id", post.ID, 1)
 			actions.AssertNotEmpty(tc, "title", post.Title)
 

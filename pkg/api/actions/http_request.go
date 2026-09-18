@@ -4,40 +4,33 @@ import (
 	"fmt"
 
 	"e2e-template/pkg/client"
-	"e2e-template/tests"
 )
 
 // sendHttpRequest executes an HTTP request and expects HTTP 2xx success.
-// This is the internal engine — callers should use the verb-specific helpers (Get, Post, Put, etc.).
-func sendHttpRequest(tc *tests.TestContext, c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) {
+// It operates independently of TestContext and returns an error if the request fails or returns a non-2xx status code.
+func sendHttpRequest(c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator) error {
 	err := c.SendHttpRequest(method, path, headers, reqBody, respBody, auth)
 	if err != nil {
-		tc.FailureReason = fmt.Sprintf("%s %s failed: %v", method, path, err)
-		tc.Fatalf("%s %s failed: %v", method, path, err)
+		return fmt.Errorf("%s %s failed: %w", method, path, err)
 	}
-	tc.Actual = fmt.Sprintf("HTTP 2xx OK for %s %s", method, path)
+	return nil
 }
 
-// sendHttpRequestAndExpectStatus executes an HTTP request and asserts the returned status code matches wantStatus.
-// This is the internal engine — callers should use the verb-specific helpers (GetAndExpectStatus, PostAndExpectStatus, etc.).
-func sendHttpRequestAndExpectStatus(tc *tests.TestContext, c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) {
+// sendHttpRequestAndExpectStatus executes an HTTP request and asserts that the returned status code matches wantStatus.
+// It operates independently of TestContext and returns an error if the status code does not match wantStatus.
+func sendHttpRequestAndExpectStatus(c *client.Client, method string, path string, headers map[string]string, reqBody interface{}, respBody interface{}, auth client.Authenticator, wantStatus int) error {
 	err := c.SendHttpRequest(method, path, headers, reqBody, respBody, auth)
 	if wantStatus >= 200 && wantStatus < 300 {
 		if err != nil {
-			tc.FailureReason = fmt.Sprintf("Expected %d for %s %s, got error: %v", wantStatus, method, path, err)
-			tc.Errorf("Expected %d for %s %s, got error: %v", wantStatus, method, path, err)
-		} else {
-			tc.Actual = fmt.Sprintf("HTTP %d OK as expected for %s %s", wantStatus, method, path)
+			return fmt.Errorf("expected %d for %s %s, got error: %w", wantStatus, method, path, err)
 		}
-	} else {
-		if err == nil {
-			tc.FailureReason = fmt.Sprintf("Expected %d for %s %s, got 2xx success", wantStatus, method, path)
-			tc.Errorf("Expected %d for %s %s, got 2xx success", wantStatus, method, path)
-		} else if err.StatusCode() != wantStatus {
-			tc.FailureReason = fmt.Sprintf("Expected %d for %s %s, got %d (body: %s)", wantStatus, method, path, err.StatusCode(), err.ResponseBody())
-			tc.Errorf("Expected %d for %s %s, got %d (body: %s)", wantStatus, method, path, err.StatusCode(), err.ResponseBody())
-		} else {
-			tc.Actual = fmt.Sprintf("HTTP %d as expected for %s %s", wantStatus, method, path)
-		}
+		return nil
 	}
+	if err == nil {
+		return fmt.Errorf("expected %d for %s %s, got 2xx success", wantStatus, method, path)
+	}
+	if err.StatusCode() != wantStatus {
+		return fmt.Errorf("expected %d for %s %s, got %d (body: %s)", wantStatus, method, path, err.StatusCode(), err.ResponseBody())
+	}
+	return nil
 }

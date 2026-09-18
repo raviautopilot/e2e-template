@@ -548,19 +548,20 @@ func TestAPI_RBAC_Boundary_AdminVsMember(t *testing.T) {
 Every HTTP verb has three helpers in `pkg/api/actions` with the same signature `(tc, c, path, headers, reqBody, respBody, auth)`:
 
 ```go
-// Expects HTTP 2xx — fails the test on error
-actions.Get(tc, apiClient, "/path", headers, nil, &respStruct, auth)
-actions.Post(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
-actions.Put(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
-actions.Patch(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
-actions.Delete(tc, apiClient, "/path", headers, nil, &respStruct, auth)
-actions.Head(tc, apiClient, "/path", headers, nil, nil, auth)
-actions.Options(tc, apiClient, "/path", headers, nil, &respStruct, auth)
-
-// *AndExpectOK — alias for the above (same behavior)
+// *AndExpectOK — asserts HTTP 2xx success (fails test on error)
 actions.GetAndExpectOK(tc, apiClient, "/path", headers, nil, &respStruct, auth)
+actions.PostAndExpectOK(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+actions.PutAndExpectOK(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+actions.PatchAndExpectOK(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+actions.DeleteAndExpectOK(tc, apiClient, "/path", headers, nil, &respStruct, auth)
+actions.HeadAndExpectOK(tc, apiClient, "/path", headers, nil, nil, auth)
+actions.OptionsAndExpectOK(tc, apiClient, "/path", headers, nil, &respStruct, auth)
 
-// *AndExpectStatus — asserts specific status code (extra wantStatus arg)
+// Bare verbs — execute request without validation, returns error (caller validates)
+err := actions.Get(tc, apiClient, "/path", headers, nil, &respStruct, auth)
+err := actions.Post(tc, apiClient, "/path", headers, &reqStruct, &respStruct, auth)
+
+// *AndExpectStatus / *AndExpectStatusCode — asserts specific status code (extra wantStatus arg)
 actions.GetAndExpectStatus(tc, apiClient, "/path", headers, nil, nil, auth, 404)
 actions.PostAndExpectStatus(tc, apiClient, "/path", headers, &reqStruct, nil, auth, 400)
 actions.DeleteAndExpectStatus(tc, apiClient, "/path", headers, nil, nil, auth, 204)

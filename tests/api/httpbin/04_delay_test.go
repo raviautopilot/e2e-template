@@ -14,7 +14,7 @@ func TestAPI_HttpBin_04_Delay(t *testing.T) {
 		"HTTP 200 OK received within client timeout",
 		apiClient, client2,
 		func(tc *tests.TestContext) {
-			actions.Get(tc, apiClient, "/delay/1", nil, nil, nil, nil)
+			actions.GetAndExpectOK(tc, apiClient, "/delay/1", nil, nil, nil, nil)
 		},
 	)
 }

@@ -26,7 +26,7 @@ func TestAPI_GitHub_01_User(t *testing.T) {
 		apiClient, client2,
 		func(tc *tests.TestContext) {
 			var user githubUser
-			actions.Get(tc, apiClient, "/users/octocat", githubHeaders, nil, &user, nil)
+			actions.GetAndExpectOK(tc, apiClient, "/users/octocat", githubHeaders, nil, &user, nil)
 			actions.AssertEquals(tc, "login", user.Login, "octocat")
 			actions.AssertNotZero(tc, "id", user.ID)
 
