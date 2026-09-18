@@ -3,8 +3,8 @@
   "_docs": "See README.md for full documentation on each field.",
 
   "_section_core": "── CORE SETTINGS ──────────────────────────────────────────",
-  "baseUrl": "http://localhost:8080",
-  "uiUrl": "http://localhost:3000",
+  "baseUrl": "https://dev.varam.srilakshmiretail.com",
+  "uiUrl": "https://dev.varam.srilakshmiretail.com",
   "seleniumUrl": "http://localhost:9515",
   "headless": false,
   "timeout": 10,
@@ -12,8 +12,8 @@
   "_section_credentials": "── AUTH CREDENTIALS ────────────────────────────────────────",
   "_credentials_note": "Never commit real credentials. Use environment variables or a secrets manager.",
   "adminCredentials": {
-    "username": "admin@example.com",
-    "password": "REPLACE_ME"
+    "username": "sudhan.admin@gmail.com",
+    "password": "REPLACE_WITH_YOUR_PASSWORD"
   },
   "memberCredentials": {
     "username": "member@example.com",

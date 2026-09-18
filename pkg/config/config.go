@@ -109,6 +109,12 @@ func LoadConfig(path string) (*Config, error) {
 			cfg.Timeout = intVal
 		}
 	}
+	if val := os.Getenv("E2E_ADMIN_USERNAME"); val != "" {
+		cfg.AdminCredentials.Username = val
+	}
+	if val := os.Getenv("E2E_ADMIN_PASSWORD"); val != "" {
+		cfg.AdminCredentials.Password = val
+	}
 
 	return cfg, nil
 }
