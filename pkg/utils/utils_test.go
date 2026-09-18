@@ -241,3 +241,68 @@ echo "Finished"
 		t.Errorf("Expected slow script to fail/timeout, got success")
 	}
 }
+
+func TestStringToURL(t *testing.T) {
+	// 1. Valid URLs
+	u, err := utils.StringToURL("https://example.com/api/v1?page=1")
+	if err != nil {
+		t.Fatalf("StringToURL failed: %v", err)
+	}
+	if u.Scheme != "https" {
+		t.Errorf("Scheme = %q, want https", u.Scheme)
+	}
+	if u.Host != "example.com" {
+		t.Errorf("Host = %q, want example.com", u.Host)
+	}
+	if u.Path != "/api/v1" {
+		t.Errorf("Path = %q, want /api/v1", u.Path)
+	}
+	if u.Query().Get("page") != "1" {
+		t.Errorf("Query page = %q, want 1", u.Query().Get("page"))
+	}
+
+	// 2. Whitespace trimming
+	u2, err := utils.ParseURL("   http://localhost:8080/health   ")
+	if err != nil {
+		t.Fatalf("ParseURL with spaces failed: %v", err)
+	}
+	if u2.Host != "localhost:8080" || u2.Path != "/health" {
+		t.Errorf("Unexpected parsed url: %v", u2)
+	}
+
+	// 3. Empty string error
+	if _, err := utils.StringToURL("   "); err == nil {
+		t.Errorf("Expected error for empty/blank string, got nil")
+	}
+
+	// 4. MustStringToURL success
+	mustU := utils.MustStringToURL("https://api.github.com/users")
+	if mustU.Host != "api.github.com" {
+		t.Errorf("MustStringToURL host = %q, want api.github.com", mustU.Host)
+	}
+
+	// 5. MustStringToURL panic on error
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expected MustStringToURL to panic on empty string")
+		}
+	}()
+	utils.MustStringToURL("")
+}
+
+func TestJoinURL(t *testing.T) {
+	joined, err := utils.JoinURL("https://example.com/api", "v1", "users")
+	if err != nil {
+		t.Fatalf("JoinURL failed: %v", err)
+	}
+	expected := "https://example.com/api/v1/users"
+	if joined.String() != expected {
+		t.Errorf("JoinURL = %q, want %q", joined.String(), expected)
+	}
+
+	// Base error
+	if _, err := utils.JoinURL("   ", "path"); err == nil {
+		t.Errorf("Expected error for invalid base URL")
+	}
+}
+
